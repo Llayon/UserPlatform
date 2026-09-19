@@ -168,3 +168,50 @@ and session handling, actively trying to break auth, bonus and isolation.
   only create sessions, never spend).
 
 No open BLOCKER or P1. Phase 2 may commit.
+
+## Phase 3 critic pass — 2026-09-19 (CLOSED, all fixed)
+
+Critic attacked the credit engine for double-spend, last-credit races,
+idempotency holes and privilege gaps.
+
+### C-301 [P1] Engine ignored user status — FIXED
+
+- **Attack:** `reserve`/`commit`/`release` never loaded the user row, so a
+  suspended account could keep spending through service calls.
+- **Fix:** `requireActiveSpender` inside every spend transaction: suspended
+  → `ACCOUNT_SUSPENDED`; unknown → fail-closed `INSUFFICIENT_CREDITS`;
+  oversized operation/requestId rejected before UNIQUE keys or logs. Reads
+  (`getBalance`) stay open. Regression test included.
+- **Status:** resolved.
+
+### C-302 [P2] `releaseStale` bypassed the repository layer — FIXED
+
+- **Attack:** the sweeper ran raw SQL through the executor, so memory fakes
+  (noop executor) returned zero rows and the stale path was untestable
+  without Postgres — portability seam violated.
+- **Fix:** new `ReservationsRepo.listStaleReserved` (pg + memory impls);
+  engine uses it. Unit test covers the sweep.
+- **Status:** resolved.
+
+### C-303 [P2] Same-millisecond flake in stale test — FIXED
+
+- **Attack:** `createdAt == cutoff` fails strict `<`, flaking when reserve
+  and sweep land in one ms.
+- **Fix:** test passes an explicit future `nowMs` (deterministic clock).
+- **Status:** resolved.
+
+### Reviewed and accepted (no change)
+
+- Last-credit race decided by single-statement conditional UPDATE (row lock
+  serializes); proven live 9×INSUFFICIENT + 0/1 final.
+- Same-requestId collision aborts its own deduction (rollback) and retries
+  once as a read; funds move exactly once (proven live ×10).
+- Commit race settles once via conditional transition; ledger
+  `commit:<id>` key is second-layer defense (nearly unreachable in practice,
+  kept deliberately).
+- Release writes no ledger row: net movement is zero, trail lives in
+  usage_events (documented in engine header).
+- Amount always comes from the DB operation row — clients can only name an
+  operation and a requestId (contract has no cost field, tested).
+- Sweeper is per-item and race-tolerant (loser sees settled state, no error,
+  no double move).

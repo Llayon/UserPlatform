@@ -62,3 +62,19 @@
   mutations will be service-authed, so no CSRF layer for this surface.
 - **Consequence:** Race-safe welcome (constraint-enforced), revocable
   sessions, explicit cookie contract covered by tests in both modes.
+
+## ADR-009: Credit engine with database-decided races (Phase 3)
+
+- **Decision:** `packages/credits` implements reserve→commit|release with one
+  transaction per call: conditional single-statement `tryReserve` (null =
+  insufficient, row lock serializes last-credit races), idempotent reserve
+  reads (same requestId returns the winner, bounded internal retry),
+  legal-transition-only commit/release (repeats are no-ops), ledger rows only
+  for net movements (`welcome_bonus`, `commit:<id>`), append-only usage trail,
+  crash recovery via `releaseStale` sweeper primitive. Suspended accounts
+  cannot spend (`ACCOUNT_SUSPENDED`); amounts always come from the DB
+  operation row, never the client.
+- **Context:** Serverless concurrency makes application-level balance checks
+  unsound; every race must be decided by constraints or atomic statements.
+- **Consequence:** §43 proven live (1/10 wins, never negative) and §45 matrix
+  green on fakes; HTTP/service-auth wiring is Phase 4.

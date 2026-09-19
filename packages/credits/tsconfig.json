@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "noEmit": false,
+    "composite": true,
+    "types": ["node"]
+  },
+  "references": [{ "path": "../contracts" }, { "path": "../db" }],
+  "include": ["src", "test"]
+}

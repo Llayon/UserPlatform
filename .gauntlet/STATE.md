@@ -1,6 +1,6 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 2 — PLATFORM AUTH (VERIFY green, ready to commit)
+## Current Checkpoint: PHASE 3 — CREDIT ENGINE (VERIFY green, ready to commit)
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)
@@ -31,7 +31,21 @@
   working). Gated tests carry an explicit 30s timeout (pooler latency).
 - Post-run check: 0 leftover `itest-` identities (cascade cleanup works).
 
-### Phase 2 contents (this pass)
+### Phase 2 contents (done, pushed)
+
+### Phase 3 contents (this pass)
+
+- `packages/credits` engine: `reserve` (atomic conditional, idempotent
+  retries, bounded internal retry on same-requestId collision), `commit` /
+  `release` (legal-transition-only, repeat-safe, ledger `commit:<id>`),
+  `getBalance`, `releaseStale` sweeper primitive. Suspended accounts cannot
+  spend; amounts come from the DB registry only.
+- `WalletsRepo.tryReserve` + `ReservationsRepo.listStaleReserved` +
+  `RegistryRepo.getOperationById` (pg + memory + parity).
+- Critic closed: 1 P1 (status guard) + 2 P2 — see CRITIC.md.
+- Tests: **85/85** (71 unit + 14 live), incl. §43 live (last-credit 1/10,
+  same-requestId funds-once, dup commit/release settle-once) and §45 matrix.
+  Zero `itest-` leftovers verified post-run.
 
 - Exchange service (`apps/api/src/services/exchange.ts`): signature validation
   (telegram/max), single-tx signup-or-login, welcome +10 (ledger-idempotent),
