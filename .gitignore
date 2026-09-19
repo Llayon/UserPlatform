@@ -1,4 +1,4 @@
-node_modules/
+п»їnode_modules/
 dist/
 dist-ssr/
 *.tsbuildinfo
@@ -14,4 +14,4 @@ tmp/
 .DS_Store
 
 # Local stray OS/user files (never track)
-Текстовый документ.txt
+РўРµРєСЃС‚РѕРІС‹Р№ РґРѕРєСѓРјРµРЅС‚.txt
