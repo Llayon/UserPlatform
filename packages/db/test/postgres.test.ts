@@ -13,7 +13,13 @@ import { DbCheckError, DbConflictError, type Db } from "../src/executor.js";
 import { createPgDb, createRepos } from "../src/index.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const itDb = DATABASE_URL ? it : it.skip;
+// Remote pooler latency (transatlantic + TLS) exceeds the 5s default budget,
+// so gated tests get an explicit timeout. Assertions unchanged.
+const DB_TIMEOUT = 30000;
+function itDb(name: string, fn: () => Promise<void>): void {
+  if (DATABASE_URL) it(name, fn, DB_TIMEOUT);
+  else it.skip(name, fn);
+}
 
 let db: Db | null = null;
 function getDb(): Db {

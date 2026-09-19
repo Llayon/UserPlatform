@@ -18,6 +18,19 @@
   To run them locally: create `.env.local` with `DATABASE_URL` (dashboard →
   Connect → Direct connection URI, password substituted; never paste in chat).
 
+### Live DB verification (2026-09-19, pooler URL, `npm run test`)
+
+- Full suite **51/51 green** against live Supabase Postgres, including:
+  - 10 parallel same-identity inserts → exactly 1 wins, 9 `DbConflictError`
+  - concurrent commit transitions → exactly 1 wins
+  - rollback discards partial writes; reservation/ledger idempotency holds;
+    cascade delete verified; seeds exact.
+- Connection note (F-001): direct `db.<ref>:5432` is IPv6-blackholed from
+  this network; tests use the transaction pooler
+  `aws-0-us-east-1.pooler.supabase.com:6543` (IPv4, BEGIN/COMMIT confirmed
+  working). Gated tests carry an explicit 30s timeout (pooler latency).
+- Post-run check: 0 leftover `itest-` identities (cascade cleanup works).
+
 ### Supabase live status (verified, no secrets exchanged)
 
 - Project `user-platform` (`ympsgyzdfgfwzwxlcnhb`), region East US (N. Virginia),
