@@ -27,7 +27,9 @@ describe("Vercel adapter", () => {
       DATABASE_URL: "postgresql://localhost:1/x",
       NODE_ENV: "production",
     } as NodeJS.ProcessEnv);
-    const res = await request(app).post("/v1/auth/dev/exchange").send({ persona: "telegram-user-1" });
+    const res = await request(app)
+      .post("/v1/auth/dev/exchange")
+      .send({ persona: "telegram-user-1" });
     expect(res.status).toBe(404);
   });
 

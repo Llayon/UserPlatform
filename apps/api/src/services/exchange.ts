@@ -98,17 +98,23 @@ export function validatePlatformIdentity(
 ): ExchangeIdentity {
   const token = platform === "telegram" ? deps.telegramBotToken : deps.maxBotToken;
   if (!token) throw new ExchangeError("INVALID_PLATFORM_DATA", "Platform provider not configured");
-  const res =
-    platform === "telegram"
-      ? validateTelegramInitData(initData, token)
-      : validateMaxInitData(initData, token);
-  if (!res.ok) {
-    if (res.error === "EXPIRED" || res.error === "FUTURE_SKEW") {
-      throw new ExchangeError("PLATFORM_DATA_EXPIRED", `Stale platform data: ${res.error}`);
-    }
-    throw new ExchangeError("INVALID_PLATFORM_DATA", `Invalid platform data: ${res.error}`);
+  // Per-branch narrowing (not a ternary union): robust under any TS version
+  // or checker settings, including Vercel's build-time type pass.
+  if (platform === "telegram") {
+    const res = validateTelegramInitData(initData, token);
+    if (!res.ok) throw mapValidationError(res.error);
+    return toExchangeIdentity(res.identity);
   }
+  const res = validateMaxInitData(initData, token);
+  if (!res.ok) throw mapValidationError(res.error);
   return toExchangeIdentity(res.identity);
+}
+
+function mapValidationError(error: string): ExchangeError {
+  if (error === "EXPIRED" || error === "FUTURE_SKEW") {
+    return new ExchangeError("PLATFORM_DATA_EXPIRED", `Stale platform data: ${error}`);
+  }
+  return new ExchangeError("INVALID_PLATFORM_DATA", `Invalid platform data: ${error}`);
 }
 
 export function buildDisplayName(

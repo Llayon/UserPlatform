@@ -19,7 +19,9 @@ export function buildVercelApp(env: NodeJS.ProcessEnv = process.env): express.Ex
   const config = loadConfig(env);
   const databaseUrl = env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required for the Platform API (fail-closed, refusing to boot open)");
+    throw new Error(
+      "DATABASE_URL is required for the Platform API (fail-closed, refusing to boot open)",
+    );
   }
   const inner = createApp({
     config,

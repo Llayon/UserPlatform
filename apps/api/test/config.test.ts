@@ -10,20 +10,30 @@ describe("loadConfig", () => {
   });
 
   it("local development keeps lax cookies and gated dev auth", () => {
-    const cfg = loadConfig({ NODE_ENV: "development", PLATFORM_ALLOW_DEV_AUTH: "true" } as NodeJS.ProcessEnv);
+    const cfg = loadConfig({
+      NODE_ENV: "development",
+      PLATFORM_ALLOW_DEV_AUTH: "true",
+    } as NodeJS.ProcessEnv);
     expect(cfg.isProduction).toBe(false);
     expect(cfg.allowDevAuth).toBe(true);
     expect(sessionCookieFlags(false)).toMatchObject({ secure: false, sameSite: "lax" });
   });
 
   it("dev flag alone never enables mock auth in production", () => {
-    const cfg = loadConfig({ NODE_ENV: "production", PLATFORM_ALLOW_DEV_AUTH: "true" } as NodeJS.ProcessEnv);
+    const cfg = loadConfig({
+      NODE_ENV: "production",
+      PLATFORM_ALLOW_DEV_AUTH: "true",
+    } as NodeJS.ProcessEnv);
     expect(cfg.allowDevAuth).toBe(false);
   });
 
   it("parses numeric knobs with safe defaults", () => {
     expect(loadConfig({} as NodeJS.ProcessEnv).welcomeCredits).toBe(10);
-    expect(loadConfig({ WELCOME_BONUS_CREDITS: "25" } as NodeJS.ProcessEnv).welcomeCredits).toBe(25);
-    expect(loadConfig({ WELCOME_BONUS_CREDITS: "junk" } as NodeJS.ProcessEnv).welcomeCredits).toBe(10);
+    expect(loadConfig({ WELCOME_BONUS_CREDITS: "25" } as NodeJS.ProcessEnv).welcomeCredits).toBe(
+      25,
+    );
+    expect(loadConfig({ WELCOME_BONUS_CREDITS: "junk" } as NodeJS.ProcessEnv).welcomeCredits).toBe(
+      10,
+    );
   });
 });
