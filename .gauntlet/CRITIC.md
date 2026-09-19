@@ -215,3 +215,41 @@ idempotency holes and privilege gaps.
   operation and a requestId (contract has no cost field, tested).
 - Sweeper is per-item and race-tolerant (loser sees settled state, no error,
   no double move).
+
+## Phase 4 critic pass — 2026-09-19 (CLOSED, no BLOCKER/P1)
+
+Critic attacked service impersonation and IDOR on the new routes and client.
+
+### Attacks executed (all repelled, all tested)
+
+- **A-1 no service token** (valid session, credit call): 401. Service
+  credential is mandatory, never optional.
+- **A-2 no user session** (valid service token): 401. A service alone names
+  no user — there is no userId field to fall back to.
+- **A-3 forged service token**: 401. Comparison is SHA-256 +
+  timingSafeEqual (length not leaked).
+- **A-4 unconfigured service** (empty PLATFORM_SERVICE_TOKEN): 401
+  fail-closed. Credit endpoints are unusable rather than open.
+- **A-5 cross-user spend**: service + sessionB committing sessionA's
+  reservation → 404. Binding is session→user server-side; reservation
+  ownership re-checked by the engine.
+- **A-6 userId smuggling**: `{..., userId: "anything"}` in the body is inert
+  (contract has no such field; zod strips it). Proven by test asserting the
+  spend lands on the session owner's balance.
+- **A-7 rotation**: previous token honored, ancient token rejected.
+- **A-8 client bundle leak**: `platform-client/src` contains zero
+  `process.env`/`localStorage` references (grep-verified); service calls
+  throw client-side without an injected callback, so a browser build cannot
+  accidentally carry the token.
+
+### Reviewed and accepted (no change)
+
+- User cookie guards reads; credit mutations need service + session (dual).
+  Suspended users fail at the engine (Phase 3 guard inherited).
+- Error mapping pins wire codes (402/404/403/409 + closed code set).
+- Usage `appSlug` resolved server-side from the registry (no client join).
+- Remaining gaps (not Phase 4 blockers): per-service keys (single shared
+  token + rotation today; upgrade path documented in .env.example),
+  exchange/credit rate limiting (needs Redis — Phase 6 concern).
+
+No open BLOCKER or P1. Phase 4 may commit.

@@ -78,3 +78,19 @@
   unsound; every race must be decided by constraints or atomic statements.
 - **Consequence:** §43 proven live (1/10 wins, never negative) and §45 matrix
   green on fakes; HTTP/service-auth wiring is Phase 4.
+
+## ADR-010: Dual-bound service API + reusable client (Phase 4)
+
+- **Decision:** Credit mutations require BOTH a service Bearer token
+  (constant-time vs primary/previous, fail-closed when unconfigured) AND the
+  user's session (cookie or X-Platform-Session). The acting userId comes only
+  from the session — request bodies have no userId field (IDOR-proof by
+  shape). `packages/platform-client` offers typed
+  auth/me/credits calls; service tokens enter only via injected callback, and
+  the package contains no env/storage access (grep-verified), so browser
+  builds cannot leak them. Rotation = PREVIOUS grace token.
+- **Context:** Service backends must spend for exactly the user behind the
+  request, without ever naming UUIDs from client JSON.
+- **Consequence:** 8 attack cases tested green; `/me/balance`, `/me/usage`
+  and credit endpoints share one binding helper; account UI (Phase 5) and
+  future apps consume the client.

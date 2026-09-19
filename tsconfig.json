@@ -9,6 +9,7 @@
     { "path": "./packages/auth-core" },
     { "path": "./packages/db" },
     { "path": "./packages/credits" },
+    { "path": "./packages/platform-client" },
     { "path": "./apps/api" }
   ],
   "include": ["test/setup.ts"]

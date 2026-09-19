@@ -1,6 +1,6 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 3 — CREDIT ENGINE (VERIFY green, ready to commit)
+## Current Checkpoint: PHASE 4 — PLATFORM API (VERIFY green, ready to commit)
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)
@@ -33,7 +33,21 @@
 
 ### Phase 2 contents (done, pushed)
 
-### Phase 3 contents (this pass)
+### Phase 2 contents (done, pushed)
+
+- Exchange service (`apps/api/src/services/exchange.ts`): signature validation
+  (telegram/max), single-tx signup-or-login, welcome +10 (ledger-idempotent),
+  acquisition first-seen, fresh session per exchange, race retry-once as login.
+- HTTP: `POST /v1/auth/platform/exchange`, `POST /v1/auth/dev/exchange`
+  (gated, 404 in prod), `DELETE /v1/auth/session`, `GET /v1/me`
+  (cookie-bound, no user params). App factory injects db/repos (memory in
+  tests, pg in prod). Migration `20260919190000_acquisitions.sql` applied.
+- Critic closed: 2 P1 (fabricated createdAt, IDOR proof) — see CRITIC.md.
+- Tests: **71/71**, incl. live 10-way exchange race (1 user, 1 bonus) and
+  agent A/B isolation. `.env.example` gains TELEGRAM/MAX_BOT_TOKEN,
+  PLATFORM_ALLOW_DEV_AUTH, WELCOME/SESSION knobs (placeholders only).
+
+### Phase 3 contents (done, pushed)
 
 - `packages/credits` engine: `reserve` (atomic conditional, idempotent
   retries, bounded internal retry on same-requestId collision), `commit` /
@@ -47,17 +61,19 @@
   same-requestId funds-once, dup commit/release settle-once) and §45 matrix.
   Zero `itest-` leftovers verified post-run.
 
-- Exchange service (`apps/api/src/services/exchange.ts`): signature validation
-  (telegram/max), single-tx signup-or-login, welcome +10 (ledger-idempotent),
-  acquisition first-seen, fresh session per exchange, race retry-once as login.
-- HTTP: `POST /v1/auth/platform/exchange`, `POST /v1/auth/dev/exchange`
-  (gated, 404 in prod), `DELETE /v1/auth/session`, `GET /v1/me`
-  (cookie-bound, no user params). App factory injects db/repos (memory in
-  tests, pg in prod). Migration `20260919190000_acquisitions.sql` applied.
-- Critic closed: 2 P1 (fabricated createdAt, IDOR proof) — see CRITIC.md.
-- Tests: **71/71**, incl. live 10-way exchange race (1 user, 1 bonus) and
-  agent A/B isolation. `.env.example` gains TELEGRAM/MAX_BOT_TOKEN,
-  PLATFORM_ALLOW_DEV_AUTH, WELCOME/SESSION knobs (placeholders only).
+### Phase 4 contents (this pass)
+
+- Dual-bound credit API: `POST /v1/credits/reserve|commit|release` require
+  service Bearer + user session; userId only from session (no such body
+  field). `GET /v1/me/balance`, `GET /v1/me/usage` (slug-resolved trail).
+  Error map 402/404/403/409 + `RESERVATION_CONFLICT` code.
+- `packages/platform-client`: typed auth/me/credits, cookie-jar friendly,
+  `setSessionToken` server pattern, service-token-via-callback only
+  (no env/storage in package). Wire-tested against ephemeral server.
+- Critic closed: 8 attack cases repelled (A-1..A-8, all tested) — see
+  CRITIC.md. Remaining: per-service keys, rate limits (Phase 6).
+- Tests: **98/98** expected (85 + 9 credit routes + 4 client); wire proof
+  included. Zero `itest-` leftovers (no DB writes in new tests).
 
 ### Supabase live status (verified, no secrets exchanged)
 
