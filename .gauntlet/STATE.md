@@ -32,7 +32,80 @@
 - Session revocation design (freshness 3600s depends on it).
 - `DATABASE_URL`-gated integration tests (need Supabase project).
 
-### Manual steps required
+### Supabase CLI status (2026-09-19, verified via CLI 2.117.0)
 
-- ~~Create GitHub repo `Llayon/UserPlatform`~~ — DONE 2026-09-19 via gh CLI (public, `origin/master` tracking, 2 commits pushed).
-- Create Supabase project → SUPABASE SETUP CHECKPOINT (Phase 1 needs it).
+- `supabase init` done: `supabase/config.toml` (`project_id = "UserPlatform"`) committed.
+- Migrations renamed to CLI timestamp convention (`20260919143000_*`,
+  `20260919143100_*`); still UNAPPLIED.
+- CLI is NOT authenticated (`projects list` → "Access token not provided").
+  No project created, no credentials invented — see SUPABASE SETUP CHECKPOINT.
+- Local `supabase start` / `db lint` impossible here (no Docker); SQL
+  validated by critic review only. First real validation = `db push` output.
+
+## SUPABASE SETUP CHECKPOINT READY
+
+STOP — a Supabase project does not exist yet and the CLI has no access token.
+Everything applicable without auth is done (code, migrations, `config.toml`).
+Do NOT invent credentials. Run the steps below in YOUR terminal (secrets stay
+local, never paste them in chat). CLI verified: 2.117.0.
+
+**Why Supabase:** managed PostgreSQL (source of truth for accounts/credits),
+migration-tracked schema, no server to maintain. Region `us-east-1`
+(N. Virginia) — closest to Vercel `iad1` where Holodilnik runs.
+
+**Step 1 — authenticate (interactive, browser OAuth, token stays local):**
+
+```
+cd D:\Programms\Max\UserPlatform
+supabase login
+```
+
+**Step 2 — pick the organization (must be YOUR org, not a random one):**
+
+```
+supabase orgs list
+```
+
+**Step 3 — create the project (free tier is enough for Phase 1):**
+
+```
+# Generate the DB password locally first (never in chat):
+# PowerShell: -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
+supabase projects create user-platform --org-id <org-id-from-step-2> --db-password <generated> --region us-east-1
+```
+
+Wait until status is ACTIVE_HEALTHY (`supabase projects list`).
+
+**Step 4 — link the repo and push migrations:**
+
+```
+supabase link --project-ref <project-ref>
+supabase db push
+```
+
+Expected: both migrations applied (`platform_core`, `seed_registry`).
+This is the first REAL validation of the SQL — report any error verbatim.
+
+**Step 5 — wire secrets (server-only; public-safe vs secret split):**
+
+```
+supabase projects api-keys --project-ref <project-ref> --reveal
+```
+
+Set locally in `.env.local` (gitignored) and later in Vercel env:
+
+```
+# Server-only secrets:
+DATABASE_URL=postgresql://postgres:<db-password>@db.<ref>.supabase.co:5432/postgres
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service_role key from api-keys>
+# Public-safe (Phase 5 account UI only):
+VITE_PLATFORM_API_URL=http://localhost:3002
+```
+
+Do NOT set `SUPABASE_ANON_KEY` anywhere — the API uses service-role
+server-side only (RLS is deny-by-default, see migration 0001).
+
+**Step 6 — tell me "Supabase ready + project ref".** I will then verify
+(`supabase migration list`, seed row counts) and start Phase 1
+(repositories + `DATABASE_URL`-gated integration tests).
