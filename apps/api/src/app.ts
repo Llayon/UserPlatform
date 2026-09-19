@@ -43,9 +43,15 @@ export function createApp(deps: AppDeps): express.Express {
   });
 
   // Central error boundary — never leaks internals or secrets.
+  // Logs the stack for production diagnosis (our errors carry codes only,
+  // never tokens, initData or connection strings).
   app.use(
-    (_err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       void _next;
+      console.error(
+        "[platform-api] unhandled:",
+        err instanceof Error ? (err.stack ?? err.message) : String(err).slice(0, 500),
+      );
       res.status(500).json({ error: "Internal server error", code: "INTERNAL_ERROR" });
     },
   );
