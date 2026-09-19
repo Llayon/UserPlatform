@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+*.local
+coverage/
+playwright-report/
+test-results/
+tmp/
+.env
+.env.local
+.env.*.local
+.vercel/
+.DS_Store
