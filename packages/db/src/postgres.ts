@@ -362,6 +362,10 @@ const registry: RegistryRepo = {
     ]);
     return rows.length ? mapOperation(rows[0]) : null;
   },
+  async getOperationById(exec, id) {
+    const { rows } = await exec.query<R>(`select * from operations where id = $1`, [id]);
+    return rows.length ? mapOperation(rows[0]) : null;
+  },
 };
 
 const wallets: WalletsRepo = {
@@ -376,6 +380,21 @@ const wallets: WalletsRepo = {
     const { rows } = await exec.query<R>(`select * from credit_wallets where user_id = $1`, [
       userId,
     ]);
+    return rows.length ? mapWallet(rows[0]) : null;
+  },
+  async tryReserve(exec, userId, amount) {
+    if (!Number.isInteger(amount) || amount < 0)
+      throw new Error(`Invalid reserve amount ${amount}`);
+    const { rows } = await exec.query<R>(
+      `update credit_wallets
+       set available_balance = available_balance - $2,
+           reserved_balance = reserved_balance + $2,
+           version = version + 1,
+           updated_at = now()
+       where user_id = $1 and available_balance >= $2
+       returning *`,
+      [userId, amount],
+    );
     return rows.length ? mapWallet(rows[0]) : null;
   },
   async adjust(exec, userId, delta) {
@@ -441,6 +460,13 @@ const reservations: ReservationsRepo = {
       [userId, requestId],
     );
     return rows.length ? mapReservation(rows[0]) : null;
+  },
+  async listStaleReserved(exec, cutoffIso, limit = 100) {
+    const { rows } = await exec.query<R>(
+      `select * from reservations where status = 'reserved' and created_at < $1 order by created_at limit $2`,
+      [cutoffIso, Math.min(Math.max(limit, 1), 500)],
+    );
+    return rows.map(mapReservation);
   },
   async transition(exec, id, from, to) {
     const { rows } = await exec.query<R>(

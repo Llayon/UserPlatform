@@ -277,6 +277,10 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
       const op = SEED_OPERATIONS.find((o) => o.operationKey === fullKey);
       return op ? { ...op } : null;
     },
+    async getOperationById(_exec, id) {
+      const op = SEED_OPERATIONS.find((o) => o.id === id);
+      return op ? { ...op } : null;
+    },
   };
 
   const wallets: WalletsRepo = {
@@ -296,6 +300,18 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     async getByUserId(_exec, userId) {
       const w = store.wallets.get(userId);
       return w ? { ...w } : null;
+    },
+    async tryReserve(_exec, userId, amount) {
+      if (!Number.isInteger(amount) || amount < 0)
+        throw new Error(`Invalid reserve amount ${amount}`);
+      const wallet = store.wallets.get(userId);
+      if (!wallet) return null;
+      if (wallet.availableBalance < amount) return null;
+      wallet.availableBalance -= amount;
+      wallet.reservedBalance += amount;
+      wallet.version += 1;
+      wallet.updatedAt = now();
+      return { ...wallet };
     },
     async adjust(_exec, userId, delta) {
       const wallet = store.wallets.get(userId);
@@ -378,6 +394,13 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
         if (r.userId === userId && r.requestId === requestId) return { ...r };
       }
       return null;
+    },
+    async listStaleReserved(_exec, cutoffIso, limit = 100) {
+      return [...store.reservations.values()]
+        .filter((r) => r.status === "reserved" && r.createdAt < cutoffIso)
+        .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
+        .slice(0, Math.min(Math.max(limit, 1), 500))
+        .map((r) => ({ ...r }));
     },
     async transition(_exec, id, from: ReservationStatus[], to: ReservationStatus) {
       const r = store.reservations.get(id);

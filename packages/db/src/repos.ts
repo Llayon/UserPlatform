@@ -77,6 +77,7 @@ export interface RegistryRepo {
   listOperations(exec: DbExecutor): Promise<DbOperation[]>;
   /** Full key form "app.operation" (e.g. "fridge.scan"). Returns null when missing/disabled-aware by caller. */
   findOperationByKey(exec: DbExecutor, fullKey: string): Promise<DbOperation | null>;
+  getOperationById(exec: DbExecutor, id: string): Promise<DbOperation | null>;
 }
 
 export interface WalletsRepo {
@@ -88,6 +89,13 @@ export interface WalletsRepo {
    * When expectedVersion is set, the row is updated only on version match
    * (optimistic locking); returns null on version mismatch.
    */
+  /**
+   * Atomic conditional move available → reserved. Returns the updated wallet,
+   * or null when funds are insufficient (no partial write, no exception).
+   * Single UPDATE statement: concurrent txns serialize on the row lock, so
+   * the last-credit race is decided by the database, not the application.
+   */
+  tryReserve(exec: DbExecutor, userId: string, amount: number): Promise<DbWallet | null>;
   adjust(
     exec: DbExecutor,
     userId: string,
@@ -124,6 +132,11 @@ export interface ReservationsRepo {
     userId: string,
     requestId: string,
   ): Promise<DbReservation | null>;
+  /**
+   * Oldest `reserved` reservations created before the cutoff (crash-recovery
+   * scan for the sweeper). Bounded by limit; order is oldest-first.
+   */
+  listStaleReserved(exec: DbExecutor, cutoffIso: string, limit?: number): Promise<DbReservation[]>;
   /**
    * Race-safe status transition: updates only when current status is in
    * `from`. Returns the updated row, or null when the transition is illegal

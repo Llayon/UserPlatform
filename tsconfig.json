@@ -8,6 +8,7 @@
     { "path": "./packages/contracts" },
     { "path": "./packages/auth-core" },
     { "path": "./packages/db" },
+    { "path": "./packages/credits" },
     { "path": "./apps/api" }
   ],
   "include": ["test/setup.ts"]
