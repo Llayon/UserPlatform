@@ -1,6 +1,6 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 5 — ACCOUNT UI (VERIFY green, ready to commit)
+## Current Checkpoint: PHASE 6 — DEPLOYMENT (USER PLATFORM CORE READY)
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)
@@ -75,7 +75,7 @@
 - Tests: **98/98** (84 fast + 14 live); wire proof included. Zero `itest-`
   leftovers (no DB writes in new tests).
 
-### Phase 5 contents (this pass)
+### Phase 5 contents (done, pushed)
 
 - `apps/account` (Vite 8 + React 19, `vite preview :4174`): session-first boot
   (cookie → dashboard; else exchange via host initData or dev persona picker),
@@ -90,6 +90,29 @@
   Chrome — no browser download).
 - Critic closed: §46 mobile pass, 4 accepted limitations documented; F-002
   (LIFO route mocks) recorded.
+
+### Phase 6 contents (done, deployed + verified)
+
+- Vercel project `user-platform` (scope `maximocappuccino-gmailcoms-projects`,
+  `iad1`), `vercel.json` + `api/index.ts` dual-mount adapter + pooler pg Pool.
+- Production: **https://user-platform-phi.vercel.app** (alias, public).
+  Preview: SSO-gated (302), build-clean.
+- Fixes found by deploying: dual `exports` conditions (Vercel per-file
+  transpile can't load TS from `node_modules`); `in`-narrowing (Vercel
+  build-time tsc runs without strictNullChecks); boundary stack logging
+  (safe); F-003 (PowerShell curl quoting → `-d @file` rule).
+- Live 9-point prod matrix, all green: `/` 200 own index.html; `/health` 200
+  minimal; dev exchange 404; telegram garbage 400 MISSING_HASH; max without
+  token 400 fail-closed; me/balance/usage 401; reserve no/forged service
+  401 with exact messages; no Set-Cookie on failures; no secrets anywhere;
+  logs show only request lines (+1 body-parser SyntaxError from a mangled
+  probe, no payload).
+- Secrets in Vercel (Preview+Production): DATABASE_URL, PLATFORM_SERVICE_TOKEN,
+  TELEGRAM_BOT_TOKEN. MAX_BOT_TOKEN intentionally absent (moderation pending).
+- Tests: **116/116** unit+live + **14/14** e2e (final full runs post-change).
+- Remaining triggers (not blockers): O-1 MAX live-signature verify after
+  moderation; first real Telegram exchange at Mini App launch; rate limiting
+  needs Redis; per-service keys upgrade path documented.
 
 ### Supabase live status (verified, no secrets exchanged)
 

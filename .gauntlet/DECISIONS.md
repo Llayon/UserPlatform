@@ -107,3 +107,19 @@
   bridges; scattered globals would rot. UI must be thumb-first at 360–430px.
 - **Consequence:** Host-specific code is quarantined and unit-tested;
   dashboard proven at 3 viewports + dark theme + edge data.
+
+## ADR-012: Vercel deployment on Holodilnik-proven wiring (Phase 6)
+
+- **Decision:** `vercel.json` (account `dist` output + `/v1/*`, `/health`
+  rewrites), root `api/index.ts` dual-mount adapter (prefixed + stripped
+  paths), module-scope pg Pool (max 3, pooler URL), fail-closed boot without
+  `DATABASE_URL`. Workspace `exports` use `development` → `src` /
+  `default` → `dist` conditions: Vercel transpiles per-file and cannot load
+  TS from `node_modules`, while vitest/dev consume source. Preview keeps SSO
+  gate; production is public. Boundary logs stacks (codes only, no secrets).
+- **Context:** First deploy failed at runtime (`ERR_MODULE_NOT_FOUND` for
+  `src/*.ts`); Vercel's build-time tsc also runs without strictNullChecks,
+  which disables discriminant narrowing — both fixed and verified in the
+  deploy log.
+- **Consequence:** Preview + production green; 9-point prod matrix all
+  fail-closed-correct; static UI served from CDN.

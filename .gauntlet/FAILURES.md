@@ -16,6 +16,19 @@
 - **Rule:** integration-test timeouts on EVERY test (not one) mean
   connectivity, not logic — probe TCP before touching code.
 
+## F-003: PowerShell inline `-d` JSON mangled → phantom 500s on live API
+
+- **Symptom:** Every `curl.exe -d '{"a":1}'` POST to production returned 500
+  `INTERNAL_ERROR`, including routes with no handler (POST /health) — looked
+  like a server bug after a correct deploy.
+- **Cause:** PowerShell mangles embedded double quotes when passing inline
+  `-d` strings to native curl.exe (body arrived as invalid JSON; body-parser
+  `SyntaxError` at position 1). Same family as Holodilnik F-009.
+- **Fix:** send bodies byte-exact via `-d @file` (UTF-8 no BOM). Re-ran the
+  matrix: all green. The boundary log line added during diagnosis is kept
+  permanently (safe: our errors carry codes only, never tokens/initData).
+- **Rule:** never inline JSON in PowerShell curl; always `-d @file`.
+
 ## F-002: Playwright route handlers match LIFO + session persists across goto
 
 - **Symptom:** 12/14 account E2E failed with `persona-screen` timeout, while

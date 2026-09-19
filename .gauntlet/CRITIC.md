@@ -286,3 +286,27 @@ Critic reviewed the dashboard against every §46 case plus failure analysis
   minimal scope; no extra image fetching in v1.
 
 No open BLOCKER or P1. Phase 5 may commit.
+
+## Phase 6 critic pass — deployment security checklist (2026-09-20)
+
+- Production mock auth: `POST /v1/auth/dev/exchange` → 404 live. Double
+  guarantee: `allowDevAuth` requires explicit flag AND non-production
+  (unit-tested incl. `VERCEL_ENV=preview` posture).
+- Secrets: `/health` minimal (no keys); error bodies carry codes only;
+  boundary log line carries stacks without tokens/initData/connection
+  strings (verified in live logs — only a body-parser SyntaxError from a
+  mangled probe, no payload content). No `VITE_*` secrets exist.
+- Fail-closed: no `DATABASE_URL` → boot throws (tested); no bot token →
+  exchange 400 (live); no service token → credit endpoints 401 (live +
+  tested); insufficient/wrong credentials → 401/402/404 per contract.
+- Preview SSO gate active (302 on `/` and `/api/health`); untouched.
+- RLS deny-by-default already migrated; API uses service-role server-side.
+- Exchange rate limiting still absent (no Redis in this repo) — carried as
+  the single known hardening gap; abuse impact today: session minting only,
+  no spending without service token.
+- Live exchange with a real Telegram signature not performed from curl
+  (impossible without a client-held bot signature) — proven by 71
+  exchange/auth tests + live-DB race instead; first real exchange is a
+  defined follow-up trigger alongside MAX O-1 verification.
+
+No open BLOCKER or P1. Phase 6 may commit.
