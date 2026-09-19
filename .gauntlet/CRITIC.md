@@ -253,3 +253,36 @@ Critic attacked service impersonation and IDOR on the new routes and client.
   exchange/credit rate limiting (needs Redis — Phase 6 concern).
 
 No open BLOCKER or P1. Phase 4 may commit.
+
+## Phase 5 critic pass — 2026-09-19 (mobile UX §46)
+
+Critic reviewed the dashboard against every §46 case plus failure analysis
+(F-002 was a test-harness bug, fixed, not an app bug).
+
+### Verified by test
+
+- 360×800 / 390×844 / 430×932: no horizontal overflow (asserted
+  `scrollWidth - clientWidth ≤ 1`), logout CTA visible at each size.
+- Dark theme follows host (`data-theme`, asserted); light is default.
+- Balances 0 / 1 / 2 / 1250 render correct Russian plurals (asserted).
+- Long display name wraps without overflow (`overflow-wrap: anywhere`,
+  asserted at 360px). Missing avatar → initial letter (always rendered).
+- Empty usage → friendly note (asserted). Logout CTA never clipped.
+- Exchange failure → banner + retry (asserted). No desktop-sidebar
+  dependency (single centered 480px column).
+
+### Accepted limitations (documented, not fixed)
+
+- Usage rows show status text ("готово / в обработке / …"), never amounts:
+  `usage_events` carries no amount and inventing "−1" would lie for free
+  operations (e.g. `fridge.recipe` = 0). Amount display needs a schema
+  change — deferred, not silent.
+- MAX safe-area insets are zeros (bridge docs expose no safe-area API we
+  could verify); Telegram `safeAreaInset` is mapped. Zero is the safe
+  fallback, never a negative.
+- 50-row usage lists render unvirtualized (fine at this cap; revisit if the
+  limit grows).
+- Photo preview (`photo_url`) is not rendered — initial letter only. Deliberate
+  minimal scope; no extra image fetching in v1.
+
+No open BLOCKER or P1. Phase 5 may commit.

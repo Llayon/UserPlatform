@@ -94,3 +94,16 @@
 - **Consequence:** 8 attack cases tested green; `/me/balance`, `/me/usage`
   and credit endpoints share one binding helper; account UI (Phase 5) and
   future apps consume the client.
+
+## ADR-011: Account UI with single host-abstraction point (Phase 5)
+
+- **Decision:** `apps/account` (Vite + React, one screen, plain CSS) consumes
+  `platform-client`; exactly one module (`hosts.ts`) touches
+  `window.Telegram`/`window.WebApp`, everything else uses the normalized
+  adapter (Telegram → MAX → browser fallback, never throwing). E2E mocks the
+  API with stateful handlers (401 until exchange) and asserts viewports,
+  themes, balances, overflow and error states.
+- **Context:** Mini Apps run inside Telegram/MAX webviews with different
+  bridges; scattered globals would rot. UI must be thumb-first at 360–430px.
+- **Consequence:** Host-specific code is quarantined and unit-tested;
+  dashboard proven at 3 viewports + dark theme + edge data.

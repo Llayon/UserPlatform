@@ -16,6 +16,20 @@
 - **Rule:** integration-test timeouts on EVERY test (not one) mean
   connectivity, not logic — probe TCP before touching code.
 
+## F-002: Playwright route handlers match LIFO + session persists across goto
+
+- **Symptom:** 12/14 account E2E failed with `persona-screen` timeout, while
+  the error-path test passed. App never left `booting`.
+- **Cause:** two stacked issues. (1) A second `page.route("**/v1/me")`
+  registration silently overrode the first (Playwright matches LIFO), so the
+  boot-time 401 became a 200 and the persona screen never rendered. (2) In
+  the viewport loop, the session cookie survived `goto`, so iteration 2
+  skipped login legitimately — test bug, not app bug.
+- **Fix:** single stateful mock per pattern (401 until exchange flips an
+  `authed` flag); per-iteration `clearCookies` + `unrouteAll` + fresh mocks.
+- **Rule:** one stateful handler per URL pattern in E2E; never stack
+  overlapping route mocks.
+
 ## Watch
 
 - MAX byte-level check-string layout not quoted verbatim in official docs fetched; re-verify with live MAX bot token in Phase 2 before trusting MAX exchange in prod.

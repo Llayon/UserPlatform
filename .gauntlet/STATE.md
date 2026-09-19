@@ -1,6 +1,6 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 4 — PLATFORM API (VERIFY green, ready to commit)
+## Current Checkpoint: PHASE 5 — ACCOUNT UI (VERIFY green, ready to commit)
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)
@@ -61,7 +61,7 @@
   same-requestId funds-once, dup commit/release settle-once) and §45 matrix.
   Zero `itest-` leftovers verified post-run.
 
-### Phase 4 contents (this pass)
+### Phase 4 contents (done, pushed)
 
 - Dual-bound credit API: `POST /v1/credits/reserve|commit|release` require
   service Bearer + user session; userId only from session (no such body
@@ -72,8 +72,24 @@
   (no env/storage in package). Wire-tested against ephemeral server.
 - Critic closed: 8 attack cases repelled (A-1..A-8, all tested) — see
   CRITIC.md. Remaining: per-service keys, rate limits (Phase 6).
-- Tests: **98/98** expected (85 + 9 credit routes + 4 client); wire proof
-  included. Zero `itest-` leftovers (no DB writes in new tests).
+- Tests: **98/98** (84 fast + 14 live); wire proof included. Zero `itest-`
+  leftovers (no DB writes in new tests).
+
+### Phase 5 contents (this pass)
+
+- `apps/account` (Vite 8 + React 19, `vite preview :4174`): session-first boot
+  (cookie → dashboard; else exchange via host initData or dev persona picker),
+  balance card with Russian plurals, 3 service cards (fridge open, others
+  soon), day-grouped usage trail (status text, no invented amounts), logout,
+  error/retry states. `hosts.ts` is the only module touching Mini App
+  bridges; `platform-client` for all API calls.
+- Tests: 10 unit (hosts incl. partial/malformed globals; helpers incl. TZ-safe
+  day labels) + **14/14 E2E** (mocked API: login flow, 4 balance variants,
+  empty usage, failure banner, 360/390/430 overflow-free, dark theme).
+  Root `npm run test:e2e` added (builds account, runs Playwright on system
+  Chrome — no browser download).
+- Critic closed: §46 mobile pass, 4 accepted limitations documented; F-002
+  (LIFO route mocks) recorded.
 
 ### Supabase live status (verified, no secrets exchanged)
 

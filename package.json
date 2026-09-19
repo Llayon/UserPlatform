@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "test:e2e": "npm run build --workspace=@user-platform/account && playwright test --config apps/account/playwright.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
