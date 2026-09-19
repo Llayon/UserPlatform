@@ -17,6 +17,7 @@ import {
 } from "./executor.js";
 import type {
   DbApp,
+  DbAcquisition,
   DbEntitlement,
   DbIdentity,
   DbLedgerEntry,
@@ -35,6 +36,7 @@ import type {
 } from "./types.js";
 import type {
   EntitlementsRepo,
+  AcquisitionsRepo,
   IdentitiesRepo,
   LedgerRepo,
   ProfilesRepo,
@@ -252,6 +254,15 @@ function mapUsage(r: R): DbUsageEvent {
 }
 function mapEntitlement(r: R): DbEntitlement {
   return { userId: str(r.user_id), key: str(r.key), createdAt: iso(r.created_at) };
+}
+
+function mapAcquisition(r: R): DbAcquisition {
+  return {
+    userId: str(r.user_id),
+    provider: r.provider as IdentityProvider,
+    startParam: str(r.start_param),
+    firstSeenAt: iso(r.first_seen_at),
+  };
 }
 
 // ---------- repositories ----------
@@ -491,6 +502,31 @@ const entitlements: EntitlementsRepo = {
   },
 };
 
+const acquisitions: AcquisitionsRepo = {
+  async recordFirstSeen(exec, input) {
+    const { rows } = await exec.query<R>(
+      `insert into user_acquisitions (user_id, provider, start_param)
+       values ($1, $2, $3)
+       on conflict (user_id, provider) do nothing
+       returning *`,
+      [input.userId, input.provider, input.startParam],
+    );
+    if (rows.length) return mapAcquisition(rows[0]);
+    const existing = await exec.query<R>(
+      `select * from user_acquisitions where user_id = $1 and provider = $2`,
+      [input.userId, input.provider],
+    );
+    return mapAcquisition(existing.rows[0]);
+  },
+  async getByUserProvider(exec, userId, provider) {
+    const { rows } = await exec.query<R>(
+      `select * from user_acquisitions where user_id = $1 and provider = $2`,
+      [userId, provider],
+    );
+    return rows.length ? mapAcquisition(rows[0]) : null;
+  },
+};
+
 /**
  * Bundle every repository. Methods take the executor explicitly, so the same
  * bundle works on a plain connection and inside `withTransaction`:
@@ -508,6 +544,7 @@ export function createRepos(): Repos {
     reservations,
     usage,
     entitlements,
+    acquisitions,
   };
 }
 

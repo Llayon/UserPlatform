@@ -7,6 +7,7 @@
 import type { DbExecutor } from "./executor.js";
 import type {
   AppStatus,
+  DbAcquisition,
   DbApp,
   DbEntitlement,
   DbIdentity,
@@ -157,6 +158,23 @@ export interface EntitlementsRepo {
   has(exec: DbExecutor, userId: string, key: string): Promise<boolean>;
 }
 
+export interface AcquisitionsRepo {
+  /**
+   * Record first-seen attribution. Insert-only: on conflict (same user +
+   * provider) the existing row is returned unchanged — first touch wins,
+   * later start_params never overwrite acquisition source.
+   */
+  recordFirstSeen(
+    exec: DbExecutor,
+    input: { userId: string; provider: IdentityProvider; startParam: string },
+  ): Promise<DbAcquisition>;
+  getByUserProvider(
+    exec: DbExecutor,
+    userId: string,
+    provider: IdentityProvider,
+  ): Promise<DbAcquisition | null>;
+}
+
 /** Bundle factory: binds all repos to one executor (connection or tx). */
 export interface Repos {
   users: UsersRepo;
@@ -169,6 +187,7 @@ export interface Repos {
   reservations: ReservationsRepo;
   usage: UsageRepo;
   entitlements: EntitlementsRepo;
+  acquisitions: AcquisitionsRepo;
 }
 
 export type { AppStatus, UserStatus };

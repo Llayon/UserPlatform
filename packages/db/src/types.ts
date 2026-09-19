@@ -109,3 +109,10 @@ export interface DbEntitlement {
   key: string;
   createdAt: string;
 }
+
+export interface DbAcquisition {
+  userId: string;
+  provider: IdentityProvider;
+  startParam: string;
+  firstSeenAt: string;
+}

@@ -8,6 +8,7 @@
 import { randomUUID } from "node:crypto";
 import { DbCheckError, DbConflictError, DbForeignKeyError } from "./executor.js";
 import type {
+  AcquisitionsRepo,
   EntitlementsRepo,
   IdentitiesRepo,
   LedgerRepo,
@@ -22,6 +23,7 @@ import type {
 } from "./repos.js";
 import type {
   DbApp,
+  DbAcquisition,
   DbEntitlement,
   DbIdentity,
   DbLedgerEntry,
@@ -45,6 +47,7 @@ export interface MemoryStore {
   reservations: Map<string, DbReservation>;
   usage: Map<string, DbUsageEvent>;
   entitlements: Map<string, DbEntitlement>;
+  acquisitions: Map<string, DbAcquisition>;
 }
 
 export function createMemoryStore(): MemoryStore {
@@ -58,6 +61,7 @@ export function createMemoryStore(): MemoryStore {
     reservations: new Map(),
     usage: new Map(),
     entitlements: new Map(),
+    acquisitions: new Map(),
   };
 }
 
@@ -167,6 +171,7 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
       for (const [k, v] of store.reservations) if (v.userId === id) store.reservations.delete(k);
       for (const [k, v] of store.usage) if (v.userId === id) store.usage.delete(k);
       for (const [k, v] of store.entitlements) if (v.userId === id) store.entitlements.delete(k);
+      for (const [k, v] of store.acquisitions) if (v.userId === id) store.acquisitions.delete(k);
     },
   };
 
@@ -429,6 +434,27 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     },
   };
 
+  const acquisitions: AcquisitionsRepo = {
+    async recordFirstSeen(_exec, input) {
+      requireUser(store, input.userId);
+      const key = `${input.userId}:${input.provider}`;
+      const existing = store.acquisitions.get(key);
+      if (existing) return { ...existing };
+      const row: DbAcquisition = {
+        userId: input.userId,
+        provider: input.provider,
+        startParam: input.startParam,
+        firstSeenAt: now(),
+      };
+      store.acquisitions.set(key, row);
+      return { ...row };
+    },
+    async getByUserProvider(_exec, userId, provider) {
+      const row = store.acquisitions.get(`${userId}:${provider}`);
+      return row ? { ...row } : null;
+    },
+  };
+
   return {
     users,
     identities,
@@ -440,5 +466,6 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     reservations,
     usage,
     entitlements,
+    acquisitions,
   };
 }
