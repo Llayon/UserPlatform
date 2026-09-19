@@ -3,7 +3,7 @@
 ## Current Checkpoint: PHASE 0 — RESEARCH + ARCHITECTURE (VERIFY green, ready to commit)
 
 **Date:** 2026-09-19
-**Repository:** local `D:\Programms\Max\UserPlatform` (no `Llayon/UserPlatform` remote exists yet — creation is a manual step, see below)
+**Repository:** `Llayon/UserPlatform` (public, created 2026-09-19 via `gh repo create`; local `D:\Programms\Max\UserPlatform` tracking `origin/master`)
 **Branch:** master (`c720552` committed, clean; no remote yet)
 
 ### Verified research (2026-09-19)
@@ -32,7 +32,7 @@
 - Session revocation design (freshness 3600s depends on it).
 - `DATABASE_URL`-gated integration tests (need Supabase project).
 
-### Manual steps required (not done)
+### Manual steps required
 
-- Create GitHub repo `Llayon/UserPlatform` (owner action) and push.
+- ~~Create GitHub repo `Llayon/UserPlatform`~~ — DONE 2026-09-19 via gh CLI (public, `origin/master` tracking, 2 commits pushed).
 - Create Supabase project → SUPABASE SETUP CHECKPOINT (Phase 1 needs it).
