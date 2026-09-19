@@ -3,10 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "main": "./dist/app.js",
-  "types": "./dist/app.d.ts",
+  "main": "./dist/src/app.js",
+  "types": "./dist/src/app.d.ts",
   "exports": {
-    ".": "./src/app.ts",
+    ".": {
+      "development": "./src/app.ts",
+      "default": "./dist/src/app.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
