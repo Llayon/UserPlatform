@@ -12,5 +12,5 @@
     { "path": "./packages/platform-client" },
     { "path": "./apps/api" }
   ],
-  "include": ["test/setup.ts"]
+  "include": ["test/setup.ts", "api/index.ts"]
 }

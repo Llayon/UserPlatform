@@ -25,7 +25,11 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
-  const isProduction = env.NODE_ENV === "production";
+  // Vercel preview deployments must share production's security posture:
+  // mock auth stays off and cookies stay strict even when NODE_ENV slips.
+  const vercelEnv = env.VERCEL_ENV;
+  const isProduction =
+    env.NODE_ENV === "production" || vercelEnv === "production" || vercelEnv === "preview";
   return {
     port: parsePositiveInt(env.PORT, 3002),
     isProduction,

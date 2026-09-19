@@ -15,3 +15,5 @@ tmp/
 
 # Local stray OS/user files (never track)
 Текстовый документ.txt
+.vercel
+.env*
