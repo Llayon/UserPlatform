@@ -12,3 +12,6 @@ tmp/
 .env.*.local
 .vercel/
 .DS_Store
+
+# Local stray OS/user files (never track)
+Текстовый документ.txt
