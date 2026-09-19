@@ -23,6 +23,8 @@ function testApp(overrides: Partial<ApiConfig> = {}) {
     sessionTtlSeconds: 3600,
     allowDevAuth: true,
     sessionCookieName: "up_session",
+    serviceToken: "test-service-token",
+    serviceTokenPrevious: "",
     ...overrides,
   };
   return createApp({ config, db, repos: createMemoryRepos(createMemoryStore()) });

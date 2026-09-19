@@ -74,6 +74,7 @@ export interface SessionsRepo {
 
 export interface RegistryRepo {
   listApps(exec: DbExecutor): Promise<DbApp[]>;
+  getAppById(exec: DbExecutor, id: string): Promise<DbApp | null>;
   listOperations(exec: DbExecutor): Promise<DbOperation[]>;
   /** Full key form "app.operation" (e.g. "fridge.scan"). Returns null when missing/disabled-aware by caller. */
   findOperationByKey(exec: DbExecutor, fullKey: string): Promise<DbOperation | null>;

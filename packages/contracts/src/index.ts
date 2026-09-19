@@ -108,6 +108,16 @@ export const creditReleaseRequestSchema = z.object({
 });
 export type CreditReleaseRequest = z.infer<typeof creditReleaseRequestSchema>;
 
+// NOTE: no userId field exists on any credit request by design — the acting
+// user is bound server-side from the session (§24). A service cannot name an
+// arbitrary user, so there is nothing to tamper with (IDOR-proof by shape).
+
+export const creditMutationResponseSchema = z.object({
+  reservation: reservationSchema,
+  reused: z.boolean(),
+});
+export type CreditMutationResponse = z.infer<typeof creditMutationResponseSchema>;
+
 // ---------- usage ----------
 
 export const usageEntrySchema = z.object({
@@ -146,6 +156,7 @@ export const errorCodeSchema = z.enum([
   "NOT_FOUND",
   "INVALID_PAYLOAD",
   "INSUFFICIENT_CREDITS",
+  "RESERVATION_CONFLICT",
   "DUPLICATE_REQUEST",
   "RATE_LIMIT_UNAVAILABLE",
   "PROVIDER_ERROR",

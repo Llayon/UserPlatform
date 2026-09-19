@@ -270,6 +270,10 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     async listApps() {
       return SEED_APPS.map((a) => ({ ...a }));
     },
+    async getAppById(_exec, id) {
+      const app = SEED_APPS.find((a) => a.id === id);
+      return app ? { ...app } : null;
+    },
     async listOperations() {
       return SEED_OPERATIONS.map((o) => ({ ...o }));
     },

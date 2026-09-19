@@ -6,6 +6,11 @@
     "composite": true,
     "types": ["node"]
   },
-  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/auth-core" }],
+  "references": [
+    { "path": "../../packages/contracts" },
+    { "path": "../../packages/auth-core" },
+    { "path": "../../packages/db" },
+    { "path": "../../packages/credits" }
+  ],
   "include": ["src", "test"]
 }

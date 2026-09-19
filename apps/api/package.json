@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "./dist/app.js",
+  "types": "./dist/app.d.ts",
+  "exports": {
+    ".": "./src/app.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "tsc -b",
     "dev": "tsx watch src/index.ts"
@@ -10,6 +16,7 @@
   "dependencies": {
     "@user-platform/auth-core": "0.1.0",
     "@user-platform/contracts": "0.1.0",
+    "@user-platform/credits": "0.1.0",
     "@user-platform/db": "0.1.0",
     "express": "^5.1.0",
     "zod": "^4.1.5"

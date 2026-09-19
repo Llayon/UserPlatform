@@ -352,6 +352,10 @@ const registry: RegistryRepo = {
     const { rows } = await exec.query<R>(`select * from apps order by slug`);
     return rows.map(mapApp);
   },
+  async getAppById(exec, id) {
+    const { rows } = await exec.query<R>(`select * from apps where id = $1`, [id]);
+    return rows.length ? mapApp(rows[0]) : null;
+  },
   async listOperations(exec) {
     const { rows } = await exec.query<R>(`select * from operations order by operation_key`);
     return rows.map(mapOperation);
