@@ -98,15 +98,16 @@ export function validatePlatformIdentity(
 ): ExchangeIdentity {
   const token = platform === "telegram" ? deps.telegramBotToken : deps.maxBotToken;
   if (!token) throw new ExchangeError("INVALID_PLATFORM_DATA", "Platform provider not configured");
-  // Per-branch narrowing (not a ternary union): robust under any TS version
-  // or checker settings, including Vercel's build-time type pass.
+  // `in`-narrowing (not truthiness): valid with or without strictNullChecks,
+  // so heterogeneous external checkers (e.g. Vercel's build-time tsc pass
+  // without the project config) see the same clean result as `tsc -b`.
   if (platform === "telegram") {
     const res = validateTelegramInitData(initData, token);
-    if (!res.ok) throw mapValidationError(res.error);
+    if ("error" in res) throw mapValidationError(res.error);
     return toExchangeIdentity(res.identity);
   }
   const res = validateMaxInitData(initData, token);
-  if (!res.ok) throw mapValidationError(res.error);
+  if ("error" in res) throw mapValidationError(res.error);
   return toExchangeIdentity(res.identity);
 }
 
