@@ -41,6 +41,7 @@ export const exchangeResultSchema = z.object({
   user: platformUserSchema,
   isNewUser: z.boolean(),
   balance: z.number().int(),
+  sessionExpiresAt: z.string(),
 });
 export type ExchangeResult = z.infer<typeof exchangeResultSchema>;
 
@@ -118,6 +119,22 @@ export const usageEntrySchema = z.object({
   createdAt: z.string(),
 });
 export type UsageEntry = z.infer<typeof usageEntrySchema>;
+
+// ---------- me ----------
+
+export const meProfileSchema = z.object({
+  displayName: z.string(),
+  avatarUrl: z.string().nullable(),
+  locale: z.string().nullable(),
+});
+export type MeProfile = z.infer<typeof meProfileSchema>;
+
+export const meResponseSchema = z.object({
+  user: platformUserSchema,
+  profile: meProfileSchema,
+  balance: balanceSchema,
+});
+export type MeResponse = z.infer<typeof meResponseSchema>;
 
 // ---------- errors ----------
 

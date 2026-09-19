@@ -123,3 +123,48 @@ integration tests) for constraints, indexes, race safety and portability.
   for `DATABASE_URL` (9 tests currently skip by design).
 
 No open BLOCKER or P1. Phase 1 may commit.
+
+## Phase 2 critic pass — 2026-09-19 (CLOSED, all fixed)
+
+Critic ran the §36 checklist against the exchange service, routes, cookies
+and session handling, actively trying to break auth, bonus and isolation.
+
+### C-201 [P1] Exchange response fabricated `createdAt` — FIXED
+
+- **Attack:** `toPublicResult` filled `user.createdAt` with `new Date()`,
+  so every exchange (including returning users) reported "just created".
+- **Fix:** `ExchangeOutcome` carries the real `userCreatedAt` from the DB row
+  in both paths; contract validation pins the shape.
+- **Status:** resolved.
+
+### C-202 [P1] IDOR binding unproven — FIXED (test)
+
+- **Attack:** `/v1/me` takes no user parameter at all (binding is
+  cookie→hash→user server-side), but no test demonstrated two agents seeing
+  only themselves.
+- **Fix:** added agent-A/agent-B isolation test (distinct users, each `/me`
+  returns its own UUID).
+- **Status:** resolved.
+
+### Reviewed and accepted (no change)
+
+- Signatures: tamper/wrong-token/dupe-hash/expired/future/missing-user all
+  rejected with distinct codes (unit + HTTP tested). Replay window = 1h max,
+  documented; sessions revocable via DELETE /session (tested).
+- Fixation: server always mints fresh tokens; clients never supply one.
+  Theft surface: HttpOnly always; Secure+None in prod (tested), Lax in dev.
+- Bonus race: 10-way parallel exchange proven live (1 user, 1 ledger row)
+  plus memory-level equivalent. `welcome_bonus` idempotency is a DB
+  constraint, not an app check.
+- start_param: signed-evil → sanitized `""`; explicit wins; first-seen never
+  overwritten (all tested).
+- No secrets in code paths: service/route files contain zero logging of
+  initData, tokens or hashes (verified by inspection).
+- Cookie guards READS only; credit mutations stay service-authed (Phase 4).
+  Future user-mutating endpoints must add CSRF — recorded as a Phase 4 gate
+  alongside the API-level IDOR attack.
+- Exchange rate limiting absent (no Redis in this repo yet) — recorded as a
+  Phase 4/6 gap, not a Phase 2 blocker (abuse impact bounded: attacker can
+  only create sessions, never spend).
+
+No open BLOCKER or P1. Phase 2 may commit.

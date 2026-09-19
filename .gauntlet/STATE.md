@@ -1,12 +1,12 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 1 — DATABASE CORE (VERIFY green, ready to commit)
+## Current Checkpoint: PHASE 2 — PLATFORM AUTH (VERIFY green, ready to commit)
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)
 **Branch:** master
 
-### Phase 1 contents (this pass)
+### Phase 1 contents (done, pushed)
 
 - `packages/db`: row types, `DbExecutor`/`Db` seam, 10 repository interfaces,
   `pg` adapter (sole driver owner), memory fakes with identical constraint
@@ -30,6 +30,20 @@
   `aws-0-us-east-1.pooler.supabase.com:6543` (IPv4, BEGIN/COMMIT confirmed
   working). Gated tests carry an explicit 30s timeout (pooler latency).
 - Post-run check: 0 leftover `itest-` identities (cascade cleanup works).
+
+### Phase 2 contents (this pass)
+
+- Exchange service (`apps/api/src/services/exchange.ts`): signature validation
+  (telegram/max), single-tx signup-or-login, welcome +10 (ledger-idempotent),
+  acquisition first-seen, fresh session per exchange, race retry-once as login.
+- HTTP: `POST /v1/auth/platform/exchange`, `POST /v1/auth/dev/exchange`
+  (gated, 404 in prod), `DELETE /v1/auth/session`, `GET /v1/me`
+  (cookie-bound, no user params). App factory injects db/repos (memory in
+  tests, pg in prod). Migration `20260919190000_acquisitions.sql` applied.
+- Critic closed: 2 P1 (fabricated createdAt, IDOR proof) — see CRITIC.md.
+- Tests: **71/71**, incl. live 10-way exchange race (1 user, 1 bonus) and
+  agent A/B isolation. `.env.example` gains TELEGRAM/MAX_BOT_TOKEN,
+  PLATFORM_ALLOW_DEV_AUTH, WELCOME/SESSION knobs (placeholders only).
 
 ### Supabase live status (verified, no secrets exchanged)
 

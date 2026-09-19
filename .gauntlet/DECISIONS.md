@@ -47,3 +47,18 @@
   `DATABASE_URL`. Supabase-specific code is one factory function.
 - **Consequence:** Unit tests run without a DB; integration tests skip
   without `DATABASE_URL`; real race proofs need the live project.
+
+## ADR-008: Exchange sessions via HttpOnly cookies, reads-only (Phase 2)
+
+- **Decision:** `POST /v1/auth/platform/exchange` validates signature, runs a
+  single signup-or-login transaction (user+identity+profile+wallet+welcome
+  ledger+acquisition+session), sets `up_session` cookie (prod: HttpOnly+
+  Secure+SameSite=None; dev: HttpOnly+Lax) and returns user/isNewUser/balance.
+  `GET /v1/me` binds identity from the session hash only. Loser of a
+  parallel-signup race retries once as login (no bonus path). Dev personas
+  behind `PLATFORM_ALLOW_DEV_AUTH` + non-prod, 404 otherwise.
+- **Context:** Mini App webviews fetch cross-site (None+Secure required);
+  localhost dev is same-site (Lax suffices). Cookie guards reads; credit
+  mutations will be service-authed, so no CSRF layer for this surface.
+- **Consequence:** Race-safe welcome (constraint-enforced), revocable
+  sessions, explicit cookie contract covered by tests in both modes.

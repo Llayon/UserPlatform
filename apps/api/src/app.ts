@@ -1,23 +1,54 @@
 import express from "express";
+import type { Db, Repos } from "@user-platform/db";
+import { loadConfig, type ApiConfig } from "./config.js";
+import { createAuthRouter } from "./routes/auth.js";
+import { createMeRouter } from "./routes/me.js";
 
-export const app = express();
-app.use(express.json({ limit: "64kb" }));
+export interface AppDeps {
+  config?: ApiConfig;
+  db: Db;
+  repos: Repos;
+}
 
-// Phase 0 skeleton: liveness only. Auth/credits arrive in Phases 2-4.
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "user-platform-api", phase: 0 });
-});
+/**
+ * Application factory — all dependencies injected (no globals), so HTTP
+ * tests run against memory fakes and production wires real Postgres.
+ *
+ * Session cookie strategy (Mini App webviews are cross-site fetchers):
+ * production → HttpOnly + Secure + SameSite=None (HTTPS only);
+ * development → HttpOnly + SameSite=Lax (same-site localhost origins).
+ * The user cookie guards READS (/me). Credit mutations are service-authed
+ * (Phase 4) and never rely on this cookie — so no CSRF token layer is needed
+ * for the current read-only surface. Any future user-mutating endpoint MUST
+ * add CSRF protection before shipping.
+ */
+export function createApp(deps: AppDeps): express.Express {
+  const config = deps.config ?? loadConfig();
+  const app = express();
+  app.use(express.json({ limit: "64kb" }));
+  app.disable("x-powered-by");
 
-// JSON 404 (no HTML leaks, no stack traces).
-app.use((_req, res) => {
-  res.status(404).json({ error: "Not found", code: "NOT_FOUND" });
-});
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", service: "user-platform-api", phase: 2 });
+  });
 
-app.use(
-  (_err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    void _next;
-    res.status(500).json({ error: "Internal server error", code: "INTERNAL_ERROR" });
-  },
-);
+  app.use("/v1/auth", createAuthRouter({ config, db: deps.db, repos: deps.repos }));
+  app.use("/v1/me", createMeRouter({ config, db: deps.db, repos: deps.repos }));
 
-export default app;
+  // JSON 404 (no HTML leaks, no stack traces).
+  app.use((_req, res) => {
+    res.status(404).json({ error: "Not found", code: "NOT_FOUND" });
+  });
+
+  // Central error boundary — never leaks internals or secrets.
+  app.use(
+    (_err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      void _next;
+      res.status(500).json({ error: "Internal server error", code: "INTERNAL_ERROR" });
+    },
+  );
+
+  return app;
+}
+
+export default createApp;
