@@ -1,6 +1,33 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 0 — RESEARCH + ARCHITECTURE (VERIFY green, ready to commit)
+## Current Checkpoint: PHASE 1 — DATABASE CORE (VERIFY green, ready to commit)
+
+**Date:** 2026-09-19
+**Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)
+**Branch:** master
+
+### Phase 1 contents (this pass)
+
+- `packages/db`: row types, `DbExecutor`/`Db` seam, 10 repository interfaces,
+  `pg` adapter (sole driver owner), memory fakes with identical constraint
+  semantics, unit tests (10) + `DATABASE_URL`-gated integration tests (9:
+  seeds, cascade, unique/CHECK violations, 10-way identity race, idempotency,
+  rollback, commit race, usage/entitlements).
+- Critic closed: 1 BLOCKER (root tsconfig skipped db) + 3 P2 — see CRITIC.md.
+- Tests: 42 pass, 9 integration skip without `DATABASE_URL` (by design).
+  To run them locally: create `.env.local` with `DATABASE_URL` (dashboard →
+  Connect → Direct connection URI, password substituted; never paste in chat).
+
+### Supabase live status (verified, no secrets exchanged)
+
+- Project `user-platform` (`ympsgyzdfgfwzwxlcnhb`), region East US (N. Virginia),
+  linked locally (● in `projects list`).
+- `migration list`: local == remote, both migrations applied (first real SQL
+  validation — green).
+- Seed verified via read-only `db query`: 3 apps, 6 operations with exact
+  costs (fridge.scan=1, fridge.recipe=0, wardrobe.*=1, interior.analyze=2).
+- Pre-existing projects (My Game, Mars2025, repair-bot-db, GolemMechGame,
+  Motivation blues, Mars2050) untouched.
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, created 2026-09-19 via `gh repo create`; local `D:\Programms\Max\UserPlatform` tracking `origin/master`)

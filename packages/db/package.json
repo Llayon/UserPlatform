@@ -1,0 +1,26 @@
+{
+  "name": "@user-platform/db",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@user-platform/contracts": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.13.0",
+    "typescript": "~5.9.0",
+    "vitest": "^3.2.4"
+  }
+}

@@ -72,3 +72,54 @@ portability before any commit. Findings below; FIXER resolutions verified by
   real race tests require `DATABASE_URL` (SUPABASE SETUP CHECKPOINT).
 
 No open BLOCKER or P1. Phase 0 may commit.
+
+## Phase 1 critic pass — 2026-09-19 (CLOSED, all fixed)
+
+Critic attacked `packages/db` (interfaces, pg adapter, memory fakes, gated
+integration tests) for constraints, indexes, race safety and portability.
+
+### C-101 [BLOCKER] Root tsconfig skipped the new package — FIXED
+
+- **Attack:** `tsconfig.json` references lacked `./packages/db`, so
+  `npm run typecheck` passed without compiling a single db file (C-002
+  recurrence). Same lie, new package.
+- **Fix:** added the reference + `include: ["test/setup.ts"]`. Cascade fix:
+  `apps/api` needed `composite: true` once the root program included files.
+- **Status:** resolved. Lesson: any new workspace package must update the
+  root reference graph — future critic passes check this first.
+
+### C-102 [P2] Memory fake accepted invalid user status — FIXED
+
+- **Attack:** `users.create` in memory accepted any status string; Postgres
+  CHECK would reject. Fake weaker than schema → unit tests lie.
+- **Fix:** fake validates `active|suspended`, throws DbCheckError otherwise.
+- **Status:** resolved.
+
+### C-103 [P2] Test pool never closed — FIXED
+
+- **Attack:** lazy pg Pool in `postgres.test.ts` stayed open after the run
+  (hang risk under different runners).
+- **Fix:** `afterAll` closes the pool.
+- **Status:** resolved.
+
+### C-104 [P2] Nested-transaction deadlock footgun — FIXED (documented)
+
+- **Attack:** `withTransaction` on a small pool + a nested call = self-deadlock.
+- **Fix:** documented non-nesting contract on the `Db` interface. Phase 2/3
+  services compose on the passed `tx`, never re-enter.
+- **Status:** resolved.
+
+### Reviewed and accepted (no change)
+
+- RLS deny-by-default is defense-in-depth only; tests connect as owner
+  (bypass). Primary cross-user isolation must be proven at the API layer in
+  Phase 4 critic (IDOR attack) — recorded as a Phase 4 gate.
+- `createRepos()` returns stateless singletons; executors pass per-call, so
+  concurrent serverless use is safe.
+- Integration tests create/delete random `itest-` users with cascade cleanup;
+  seeds are read-only. Safe against the shared live project.
+- `adjust`/`transition` SQL reviewed: `$4::int` null-guard, `status = ANY($3)`
+  array binding, optimistic-version null-row contract. Real race proof waits
+  for `DATABASE_URL` (9 tests currently skip by design).
+
+No open BLOCKER or P1. Phase 1 may commit.

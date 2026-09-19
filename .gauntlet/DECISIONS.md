@@ -35,3 +35,15 @@
 - **Decision:** `packages/contracts` (Zod) is the single source of API shapes; apps import it, never duplicate schemas.
 - **Context:** Future apps (Wardrobe etc.) must consume typed platform contracts.
 - **Consequence:** TS project references; contracts has zero infra deps.
+
+## ADR-007: Database package with executor seam (Phase 1)
+
+- **Decision:** `packages/db` holds domain row types, repository interfaces,
+  a `pg` adapter (`postgres.ts` — the only file importing the driver),
+  in-memory fakes with identical constraint semantics, and
+  `DATABASE_URL`-gated integration tests. Repositories take the executor
+  per-call, so the same bundle works inside `withTransaction`.
+- **Context:** Supabase is Postgres; `pg` Pool works against it via
+  `DATABASE_URL`. Supabase-specific code is one factory function.
+- **Consequence:** Unit tests run without a DB; integration tests skip
+  without `DATABASE_URL`; real race proofs need the live project.
