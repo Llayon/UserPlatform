@@ -16,6 +16,7 @@ import type {
   RegistryRepo,
   Repos,
   ReservationsRepo,
+  ServiceCredentialsRepo,
   SessionsRepo,
   UsageRepo,
   UsersRepo,
@@ -31,6 +32,7 @@ import type {
   DbProfile,
   DbReservation,
   DbSession,
+  DbServiceCredential,
   DbUsageEvent,
   DbUser,
   DbWallet,
@@ -42,6 +44,8 @@ export interface MemoryStore {
   identities: Map<string, DbIdentity>;
   profiles: Map<string, DbProfile>;
   sessions: Map<string, DbSession>;
+  serviceCredentials: Map<string, DbServiceCredential>;
+  apps: Map<string, DbApp> | null;
   wallets: Map<string, DbWallet>;
   ledger: Map<string, DbLedgerEntry>;
   reservations: Map<string, DbReservation>;
@@ -56,6 +60,8 @@ export function createMemoryStore(): MemoryStore {
     identities: new Map(),
     profiles: new Map(),
     sessions: new Map(),
+    serviceCredentials: new Map(),
+    apps: null,
     wallets: new Map(),
     ledger: new Map(),
     reservations: new Map(),
@@ -237,9 +243,24 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     async create(_exec, input) {
       requireUser(store, input.userId);
       if (store.sessions.has(input.tokenHash)) throw new DbConflictError("session exists");
+      const sessionType = input.sessionType ?? "account";
+      const appId = input.appId ?? null;
+      // Mirror the DB CHECK: account ↔ NULL, app ↔ NOT NULL.
+      if (sessionType === "account" && appId !== null) {
+        throw new DbCheckError("account session must have NULL app_id");
+      }
+      if (sessionType === "app" && appId === null) {
+        throw new DbCheckError("app session requires app_id");
+      }
+      if (appId !== null && !allApps().some((a) => a.id === appId)) {
+        throw new DbForeignKeyError(`unknown app ${appId}`);
+      }
       const session: DbSession = {
+        id: randomUUID(),
         tokenHash: input.tokenHash,
         userId: input.userId,
+        sessionType,
+        appId,
         createdAt: now(),
         expiresAt: input.expiresAt,
       };
@@ -266,12 +287,75 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     },
   };
 
+  function allApps(): DbApp[] {
+    if (store.apps) return [...store.apps.values()].map((a) => ({ ...a }));
+    return SEED_APPS.map((a) => ({ ...a }));
+  }
+
+  const serviceCredentials: ServiceCredentialsRepo = {
+    async create(_exec, input) {
+      if (!allApps().some((a) => a.id === input.appId)) {
+        throw new DbForeignKeyError(`unknown app ${input.appId}`);
+      }
+      for (const existing of store.serviceCredentials.values()) {
+        if (existing.keyId === input.keyId) throw new DbConflictError("duplicate key_id");
+      }
+      if (!/^[A-Za-z0-9_-]{8,64}$/.test(input.keyId)) {
+        throw new DbCheckError("invalid key_id");
+      }
+      const row: DbServiceCredential = {
+        id: randomUUID(),
+        appId: input.appId,
+        keyId: input.keyId,
+        secretHash: input.secretHash,
+        label: input.label ?? null,
+        status: "active",
+        createdAt: now(),
+        lastUsedAt: null,
+        expiresAt: input.expiresAt ?? null,
+        revokedAt: null,
+      };
+      store.serviceCredentials.set(row.id, row);
+      return { ...row };
+    },
+    async findByKeyId(_exec, keyId) {
+      for (const row of store.serviceCredentials.values()) {
+        if (row.keyId === keyId) return { ...row };
+      }
+      return null;
+    },
+    async listByApp(_exec, appId) {
+      return [...store.serviceCredentials.values()]
+        .filter((r) => r.appId === appId)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .map((r) => ({ ...r }));
+    },
+    async revokeByKeyId(_exec, keyId) {
+      for (const row of store.serviceCredentials.values()) {
+        if (row.keyId === keyId && row.status === "active") {
+          row.status = "revoked";
+          row.revokedAt = now();
+          return { ...row };
+        }
+      }
+      return null;
+    },
+    async touchLastUsed(_exec, id, atIso) {
+      const row = store.serviceCredentials.get(id);
+      if (row) row.lastUsedAt = atIso ?? now();
+    },
+  };
+
   const registry: RegistryRepo = {
     async listApps() {
-      return SEED_APPS.map((a) => ({ ...a }));
+      return allApps();
     },
     async getAppById(_exec, id) {
-      const app = SEED_APPS.find((a) => a.id === id);
+      const app = allApps().find((a) => a.id === id);
+      return app ? { ...app } : null;
+    },
+    async getAppBySlug(_exec, slug) {
+      const app = allApps().find((a) => a.slug === slug);
       return app ? { ...app } : null;
     },
     async listOperations() {
@@ -487,6 +571,7 @@ export function createMemoryRepos(store: MemoryStore = createMemoryStore()): Rep
     identities,
     profiles,
     sessions,
+    serviceCredentials,
     registry,
     wallets,
     ledger,

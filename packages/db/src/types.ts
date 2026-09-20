@@ -36,11 +36,32 @@ export interface DbProfile {
   updatedAt: string;
 }
 
+export type SessionType = "account" | "app";
+
 export interface DbSession {
+  id: string;
   tokenHash: string;
   userId: string;
+  sessionType: SessionType;
+  /** NULL for account sessions, NOT NULL for app sessions (DB CHECK-enforced). */
+  appId: string | null;
   createdAt: string;
   expiresAt: string;
+}
+
+export type ServiceCredentialStatus = "active" | "revoked";
+
+export interface DbServiceCredential {
+  id: string;
+  appId: string;
+  keyId: string;
+  secretHash: string;
+  label: string | null;
+  status: ServiceCredentialStatus;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
 }
 
 export interface DbApp {

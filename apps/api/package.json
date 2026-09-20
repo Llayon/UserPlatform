@@ -14,7 +14,11 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "service:create": "tsx src/scripts/service.ts create",
+    "service:list": "tsx src/scripts/service.ts list",
+    "service:revoke": "tsx src/scripts/service.ts revoke",
+    "service:rotate": "tsx src/scripts/service.ts rotate"
   },
   "dependencies": {
     "@user-platform/auth-core": "0.1.0",

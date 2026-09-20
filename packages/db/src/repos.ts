@@ -15,6 +15,7 @@ import type {
   DbOperation,
   DbProfile,
   DbReservation,
+  DbServiceCredential,
   DbSession,
   DbUsageEvent,
   DbUser,
@@ -65,16 +66,40 @@ export interface ProfilesRepo {
 export interface SessionsRepo {
   create(
     exec: DbExecutor,
-    input: { tokenHash: string; userId: string; expiresAt: string },
+    input: {
+      tokenHash: string;
+      userId: string;
+      expiresAt: string;
+      sessionType?: "account" | "app";
+      appId?: string | null;
+    },
   ): Promise<DbSession>;
   getByTokenHash(exec: DbExecutor, tokenHash: string): Promise<DbSession | null>;
   deleteByTokenHash(exec: DbExecutor, tokenHash: string): Promise<void>;
   deleteExpired(exec: DbExecutor, nowIso?: string): Promise<number>;
 }
 
+export interface ServiceCredentialsRepo {
+  create(
+    exec: DbExecutor,
+    input: {
+      appId: string;
+      keyId: string;
+      secretHash: string;
+      label?: string | null;
+      expiresAt?: string | null;
+    },
+  ): Promise<DbServiceCredential>;
+  findByKeyId(exec: DbExecutor, keyId: string): Promise<DbServiceCredential | null>;
+  listByApp(exec: DbExecutor, appId: string): Promise<DbServiceCredential[]>;
+  revokeByKeyId(exec: DbExecutor, keyId: string): Promise<DbServiceCredential | null>;
+  touchLastUsed(exec: DbExecutor, id: string, atIso?: string): Promise<void>;
+}
+
 export interface RegistryRepo {
   listApps(exec: DbExecutor): Promise<DbApp[]>;
   getAppById(exec: DbExecutor, id: string): Promise<DbApp | null>;
+  getAppBySlug(exec: DbExecutor, slug: string): Promise<DbApp | null>;
   listOperations(exec: DbExecutor): Promise<DbOperation[]>;
   /** Full key form "app.operation" (e.g. "fridge.scan"). Returns null when missing/disabled-aware by caller. */
   findOperationByKey(exec: DbExecutor, fullKey: string): Promise<DbOperation | null>;
@@ -195,6 +220,7 @@ export interface Repos {
   identities: IdentitiesRepo;
   profiles: ProfilesRepo;
   sessions: SessionsRepo;
+  serviceCredentials: ServiceCredentialsRepo;
   registry: RegistryRepo;
   wallets: WalletsRepo;
   ledger: LedgerRepo;

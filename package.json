@@ -17,7 +17,11 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "build": "tsc -b",
-    "test:e2e": "npm run build --workspace=@user-platform/account && playwright test --config apps/account/playwright.config.ts"
+    "test:e2e": "npm run build --workspace=@user-platform/account && playwright test --config apps/account/playwright.config.ts",
+    "service:create": "npm run service:create --workspace=@user-platform/api",
+    "service:list": "npm run service:list --workspace=@user-platform/api",
+    "service:revoke": "npm run service:revoke --workspace=@user-platform/api",
+    "service:rotate": "npm run service:rotate --workspace=@user-platform/api"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

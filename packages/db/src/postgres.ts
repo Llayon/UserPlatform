@@ -25,11 +25,14 @@ import type {
   DbProfile,
   DbReservation,
   DbSession,
+  DbServiceCredential,
   DbUsageEvent,
   DbUser,
   DbWallet,
   IdentityProvider,
   ReservationStatus,
+  ServiceCredentialStatus,
+  SessionType,
   UsageStatus,
   UserStatus,
   AppStatus,
@@ -43,6 +46,7 @@ import type {
   RegistryRepo,
   Repos,
   ReservationsRepo,
+  ServiceCredentialsRepo,
   SessionsRepo,
   UsageRepo,
   UsersRepo,
@@ -179,10 +183,28 @@ function mapProfile(r: R): DbProfile {
 }
 function mapSession(r: R): DbSession {
   return {
+    id: str(r.id ?? r.token_hash),
     tokenHash: str(r.token_hash),
     userId: str(r.user_id),
+    sessionType: (r.session_type as SessionType | undefined) ?? "account",
+    appId: strOrNull(r.app_id),
     createdAt: iso(r.created_at),
     expiresAt: iso(r.expires_at),
+  };
+}
+function mapServiceCredential(r: R): DbServiceCredential {
+  return {
+    id: str(r.id),
+    appId: str(r.app_id),
+    keyId: str(r.key_id),
+    secretHash: str(r.secret_hash),
+    label: strOrNull(r.label),
+    status: r.status as ServiceCredentialStatus,
+    createdAt: iso(r.created_at),
+    lastUsedAt:
+      r.last_used_at === null || r.last_used_at === undefined ? null : iso(r.last_used_at),
+    expiresAt: r.expires_at === null || r.expires_at === undefined ? null : iso(r.expires_at),
+    revokedAt: r.revoked_at === null || r.revoked_at === undefined ? null : iso(r.revoked_at),
   };
 }
 function mapApp(r: R): DbApp {
@@ -324,9 +346,18 @@ const profiles: ProfilesRepo = {
 
 const sessions: SessionsRepo = {
   async create(exec, input) {
+    const sessionType = input.sessionType ?? "account";
+    const appId = input.appId ?? null;
+    if (sessionType === "account" && appId !== null) {
+      throw new DbCheckError("account session must have NULL app_id");
+    }
+    if (sessionType === "app" && appId === null) {
+      throw new DbCheckError("app session requires app_id");
+    }
     const { rows } = await exec.query<R>(
-      `insert into sessions (token_hash, user_id, expires_at) values ($1, $2, $3) returning *`,
-      [input.tokenHash, input.userId, input.expiresAt],
+      `insert into sessions (token_hash, user_id, expires_at, session_type, app_id)
+       values ($1, $2, $3, $4, $5) returning *`,
+      [input.tokenHash, input.userId, input.expiresAt, sessionType, appId],
     );
     return mapSession(rows[0]);
   },
@@ -347,6 +378,44 @@ const sessions: SessionsRepo = {
   },
 };
 
+const serviceCredentials: ServiceCredentialsRepo = {
+  async create(exec, input) {
+    const { rows } = await exec.query<R>(
+      `insert into service_credentials (app_id, key_id, secret_hash, label, expires_at)
+       values ($1, $2, $3, $4, $5) returning *`,
+      [input.appId, input.keyId, input.secretHash, input.label ?? null, input.expiresAt ?? null],
+    );
+    return mapServiceCredential(rows[0]);
+  },
+  async findByKeyId(exec, keyId) {
+    const { rows } = await exec.query<R>(`select * from service_credentials where key_id = $1`, [
+      keyId,
+    ]);
+    return rows.length ? mapServiceCredential(rows[0]) : null;
+  },
+  async listByApp(exec, appId) {
+    const { rows } = await exec.query<R>(
+      `select * from service_credentials where app_id = $1 order by created_at desc`,
+      [appId],
+    );
+    return rows.map(mapServiceCredential);
+  },
+  async revokeByKeyId(exec, keyId) {
+    const { rows } = await exec.query<R>(
+      `update service_credentials set status = 'revoked', revoked_at = now()
+       where key_id = $1 and status = 'active' returning *`,
+      [keyId],
+    );
+    return rows.length ? mapServiceCredential(rows[0]) : null;
+  },
+  async touchLastUsed(exec, id, atIso) {
+    await exec.query(`update service_credentials set last_used_at = $2 where id = $1`, [
+      id,
+      atIso ?? new Date().toISOString(),
+    ]);
+  },
+};
+
 const registry: RegistryRepo = {
   async listApps(exec) {
     const { rows } = await exec.query<R>(`select * from apps order by slug`);
@@ -354,6 +423,10 @@ const registry: RegistryRepo = {
   },
   async getAppById(exec, id) {
     const { rows } = await exec.query<R>(`select * from apps where id = $1`, [id]);
+    return rows.length ? mapApp(rows[0]) : null;
+  },
+  async getAppBySlug(exec, slug) {
+    const { rows } = await exec.query<R>(`select * from apps where slug = $1`, [slug]);
     return rows.length ? mapApp(rows[0]) : null;
   },
   async listOperations(exec) {
@@ -568,6 +641,7 @@ export function createRepos(): Repos {
     identities,
     profiles,
     sessions,
+    serviceCredentials,
     registry,
     wallets,
     ledger,
