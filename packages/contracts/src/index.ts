@@ -45,6 +45,21 @@ export const exchangeResultSchema = z.object({
 });
 export type ExchangeResult = z.infer<typeof exchangeResultSchema>;
 
+// ---------- service (server-to-server) exchange ----------
+// Raw session token exists ONLY here, returned to the authenticated app
+// backend. Never reuse ExchangeResult for server responses and never expose
+// this shape on browser routes.
+export const servicePlatformExchangeResultSchema = z.object({
+  user: platformUserSchema,
+  isNewUser: z.boolean(),
+  balance: z.number().int(),
+  // app.id is a DB UUID (seed rows predate strict v4); accept any non-empty
+  // string here — authority comes from the credential→app join, not the shape.
+  app: z.object({ id: z.string().min(1).max(64), slug: z.string().min(1).max(64) }),
+  session: z.object({ token: z.string().min(20).max(256), expiresAt: z.string() }),
+});
+export type ServicePlatformExchangeResult = z.infer<typeof servicePlatformExchangeResultSchema>;
+
 // ---------- registry ----------
 
 export const appDescriptorSchema = z.object({

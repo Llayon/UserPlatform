@@ -4,6 +4,7 @@ import { loadConfig, type ApiConfig } from "./config.js";
 import { createAuthRouter } from "./routes/auth.js";
 import { createCreditsRouter } from "./routes/credits.js";
 import { createMeRouter } from "./routes/me.js";
+import { createServiceRouter } from "./routes/service.js";
 
 export interface AppDeps {
   config?: ApiConfig;
@@ -36,6 +37,7 @@ export function createApp(deps: AppDeps): express.Express {
   app.use("/v1/auth", createAuthRouter({ config, db: deps.db, repos: deps.repos }));
   app.use("/v1/me", createMeRouter({ config, db: deps.db, repos: deps.repos }));
   app.use("/v1/credits", createCreditsRouter({ config, db: deps.db, repos: deps.repos }));
+  app.use("/v1/service", createServiceRouter({ config, db: deps.db, repos: deps.repos }));
 
   // JSON 404 (no HTML leaks, no stack traces).
   app.use((_req, res) => {

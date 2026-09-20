@@ -130,26 +130,33 @@ export function buildDisplayName(
 export async function exchangeIdentity(
   deps: ExchangeDeps,
   identity: ExchangeIdentity,
-  opts?: { explicitStartParam?: string; nowMs?: number },
+  opts?: { explicitStartParam?: string; nowMs?: number; appId?: string | null },
 ): Promise<ExchangeOutcome> {
   const { db, repos } = deps;
   const welcomeCredits = deps.welcomeCredits ?? WELCOME_BONUS_CREDITS;
   const ttlSeconds = deps.sessionTtlSeconds ?? 30 * 24 * 3600;
   const nowMs = opts?.nowMs ?? Date.now();
+  const appId = opts?.appId ?? null;
   // Sanitization boundary: authenticity was proven by signature validation;
   // only the sanitized value persists, and it is telemetry-only.
   const startParam = parseStartParam(opts?.explicitStartParam ?? identity.rawStartParam).value;
 
   try {
     return await db.withTransaction((tx) =>
-      signupOrLogin(tx, deps, repos, identity, { startParam, welcomeCredits, ttlSeconds, nowMs }),
+      signupOrLogin(tx, deps, repos, identity, {
+        startParam,
+        welcomeCredits,
+        ttlSeconds,
+        nowMs,
+        appId,
+      }),
     );
   } catch (err) {
     if (!(err instanceof DbConflictError)) throw err;
     // Lost a parallel-signup race: the winner committed. Re-run once as the
     // returning-user path (which grants no bonus by construction).
     return db.withTransaction((tx) =>
-      loginExisting(tx, deps, repos, identity, { ttlSeconds, nowMs }),
+      loginExisting(tx, deps, repos, identity, { ttlSeconds, nowMs, appId }),
     );
   }
 }
@@ -159,7 +166,13 @@ async function signupOrLogin(
   deps: ExchangeDeps,
   repos: Repos,
   identity: ExchangeIdentity,
-  ctx: { startParam: string; welcomeCredits: number; ttlSeconds: number; nowMs: number },
+  ctx: {
+    startParam: string;
+    welcomeCredits: number;
+    ttlSeconds: number;
+    nowMs: number;
+    appId: string | null;
+  },
 ): Promise<ExchangeOutcome> {
   const existing = await repos.identities.findByProvider(
     tx,
@@ -170,6 +183,7 @@ async function signupOrLogin(
     return loginExisting(tx, deps, repos, identity, {
       ttlSeconds: ctx.ttlSeconds,
       nowMs: ctx.nowMs,
+      appId: ctx.appId,
     });
   }
 
@@ -204,7 +218,7 @@ async function signupOrLogin(
     provider: identity.provider,
     startParam: ctx.startParam,
   });
-  const session = await mintSession(tx, repos, user.id, ctx.ttlSeconds, ctx.nowMs);
+  const session = await mintSession(tx, repos, user.id, ctx.ttlSeconds, ctx.nowMs, ctx.appId);
   return {
     userId: user.id,
     userStatus: user.status,
@@ -222,7 +236,7 @@ async function loginExisting(
   _deps: ExchangeDeps,
   repos: Repos,
   identity: ExchangeIdentity,
-  ctx: { ttlSeconds: number; nowMs: number },
+  ctx: { ttlSeconds: number; nowMs: number; appId?: string | null },
 ): Promise<ExchangeOutcome> {
   const existing = await repos.identities.findByProvider(
     tx,
@@ -238,7 +252,14 @@ async function loginExisting(
   const wallet = await repos.wallets.getByUserId(tx, user.id);
   if (!wallet) throw new ExchangeError("INTERNAL_ERROR", "Wallet missing for existing user");
   const profile = await repos.profiles.getByUserId(tx, user.id);
-  const session = await mintSession(tx, repos, user.id, ctx.ttlSeconds, ctx.nowMs);
+  const session = await mintSession(
+    tx,
+    repos,
+    user.id,
+    ctx.ttlSeconds,
+    ctx.nowMs,
+    ctx.appId ?? null,
+  );
   return {
     userId: user.id,
     userStatus: user.status,
@@ -257,9 +278,26 @@ async function mintSession(
   userId: string,
   ttlSeconds: number,
   nowMs: number,
+  appId: string | null = null,
 ): Promise<{ token: string; expiresAt: string }> {
   const token = createSessionToken();
   const expiresAt = new Date(sessionExpiresAt(nowMs, ttlSeconds)).toISOString();
-  await repos.sessions.create(tx, { tokenHash: hashSessionToken(token), userId, expiresAt });
+  if (appId) {
+    await repos.sessions.create(tx, {
+      tokenHash: hashSessionToken(token),
+      userId,
+      expiresAt,
+      sessionType: "app",
+      appId,
+    });
+  } else {
+    await repos.sessions.create(tx, {
+      tokenHash: hashSessionToken(token),
+      userId,
+      expiresAt,
+      sessionType: "account",
+      appId: null,
+    });
+  }
   return { token, expiresAt };
 }

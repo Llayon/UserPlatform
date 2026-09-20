@@ -1,6 +1,10 @@
 /**
  * API configuration — read once at boot, passed explicitly (no globals).
  * Secrets stay server-side; only VITE_PLATFORM_API_URL is public-safe.
+ *
+ * Service authority is DB-backed per-app credentials (service_credentials);
+ * there is no global PLATFORM_SERVICE_TOKEN. Removed in Gauntlet 1: any
+ * legacy env value is ignored (no hidden global path).
  */
 export interface ApiConfig {
   port: number;
@@ -12,10 +16,6 @@ export interface ApiConfig {
   /** Dev mock exchange allowed only when explicitly enabled AND not production. */
   allowDevAuth: boolean;
   sessionCookieName: string;
-  /** Service credential for backend-to-platform calls (server-only). */
-  serviceToken: string;
-  /** Previous service token honored during rotation grace (server-only). */
-  serviceTokenPrevious: string;
 }
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
@@ -39,8 +39,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     sessionTtlSeconds: parsePositiveInt(env.SESSION_TTL_SECONDS, 30 * 24 * 3600),
     allowDevAuth: env.PLATFORM_ALLOW_DEV_AUTH === "true" && !isProduction,
     sessionCookieName: "up_session",
-    serviceToken: env.PLATFORM_SERVICE_TOKEN ?? "",
-    serviceTokenPrevious: env.PLATFORM_SERVICE_TOKEN_PREVIOUS ?? "",
   };
 }
 
