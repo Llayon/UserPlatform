@@ -23,8 +23,6 @@ function testApp(overrides: Partial<ApiConfig> = {}) {
     sessionTtlSeconds: 3600,
     allowDevAuth: true,
     sessionCookieName: "up_session",
-    serviceToken: "test-service-token",
-    serviceTokenPrevious: "",
     ...overrides,
   };
   return createApp({ config, db, repos: createMemoryRepos(createMemoryStore()) });
@@ -91,6 +89,21 @@ describe("POST /v1/auth/platform/exchange", () => {
       .send({ platform: "email", initData: "x" });
     expect(res.status).toBe(400);
     expect(res.body.code).toBe("INVALID_PAYLOAD");
+  });
+
+  it("browser exchange NEVER returns a raw session token (bridge invariant)", async () => {
+    const app = testApp();
+    const res = await request(app)
+      .post("/v1/auth/platform/exchange")
+      .send({ platform: "telegram", initData: signedTelegram(4242) });
+    expect(res.status).toBe(200);
+    const body = JSON.stringify(res.body);
+    expect(res.body.sessionToken).toBeUndefined();
+    expect(res.body.session).toBeUndefined();
+    expect(res.body.token).toBeUndefined();
+    expect(body).not.toMatch(/sessionToken/);
+    // Cookie IS set (browser path); token travels HttpOnly only.
+    expect(cookies(res)).toContain("up_session=");
   });
 });
 

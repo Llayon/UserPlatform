@@ -5,10 +5,10 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createMemoryRepos, createMemoryStore } from "@user-platform/db";
+import { generateServiceToken, hashServiceSecret } from "@user-platform/auth-core";
 import { createApp } from "@user-platform/api";
 import { PlatformApiError, ServiceTokenRequiredError, createPlatformClient } from "../src/index.js";
-
-const SERVICE = "svc-client-test-token";
+import { createServerPlatformClient } from "../src/server.js";
 
 function testConfig() {
   return {
@@ -20,8 +20,6 @@ function testConfig() {
     sessionTtlSeconds: 3600,
     allowDevAuth: true,
     sessionCookieName: "up_session",
-    serviceToken: SERVICE,
-    serviceTokenPrevious: "",
   };
 }
 
@@ -46,8 +44,21 @@ function jarredFetch(): { fetchImpl: typeof fetch; sessionCookie: () => string |
 
 let baseUrl = "";
 let closeServer: (() => Promise<void>) | undefined;
+let serviceToken = "";
 
 beforeAll(async () => {
+  const repos = createMemoryRepos(createMemoryStore());
+  const exec = { query: async () => ({ rows: [], rowCount: 0 }) };
+  const fridge = await repos.registry.getAppBySlug(exec, "fridge");
+  if (!fridge) throw new Error("no fridge app");
+  const gen = generateServiceToken();
+  await repos.serviceCredentials.create(exec, {
+    appId: fridge.id,
+    keyId: gen.keyId,
+    secretHash: hashServiceSecret(gen.secret),
+    label: "client-test",
+  });
+  serviceToken = gen.token;
   const app = createApp({
     config: testConfig(),
     db: {
@@ -55,7 +66,7 @@ beforeAll(async () => {
       withTransaction: (fn) => fn({ query: async () => ({ rows: [], rowCount: 0 }) }),
       close: async () => {},
     },
-    repos: createMemoryRepos(createMemoryStore()),
+    repos,
   });
   const server = app.listen(0);
   await new Promise<void>((resolve) => server.on("listening", resolve));
@@ -85,18 +96,27 @@ describe("PlatformClient (wire)", () => {
     await expect(client.me.get()).rejects.toMatchObject({ status: 401 });
   });
 
-  it("server pattern: forwarded session + injected service token can spend", async () => {
-    const jar = jarredFetch();
-    const browser = createPlatformClient({ baseUrl, fetchImpl: jar.fetchImpl });
-    await browser.auth.exchangeDev("telegram-user-2");
-    const forwarded = jar.sessionCookie();
-    expect(forwarded).toBeTruthy();
-
-    const server = createPlatformClient({
+  it("server pattern: service exchange → app session → spend", async () => {
+    const server = createServerPlatformClient({
       baseUrl,
-      getServiceToken: () => SERVICE,
+      getServiceToken: () => serviceToken,
     });
-    server.setSessionToken(forwarded);
+    // No real Telegram signatures in tests: use the dev bridge (same app-session shape).
+    const dev = await fetch(`${baseUrl}/v1/service/auth/dev/exchange`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceToken}`,
+      },
+      body: JSON.stringify({ persona: "telegram-user-2" }),
+    });
+    expect(dev.status).toBe(200);
+    const devJson = (await dev.json()) as {
+      session: { token: string };
+      balance: number;
+    };
+    expect(devJson.balance).toBe(10);
+    server.setAppSessionToken(devJson.session.token);
     const r = await server.credits.reserve({
       operation: "fridge.scan",
       requestId: "client-000001",

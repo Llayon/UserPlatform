@@ -21,8 +21,6 @@ function testApp() {
       sessionTtlSeconds: 3600,
       allowDevAuth: true,
       sessionCookieName: "up_session",
-      serviceToken: "",
-      serviceTokenPrevious: "",
     },
     db: noopDb,
     repos: createMemoryRepos(createMemoryStore()),
