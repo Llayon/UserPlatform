@@ -310,3 +310,108 @@ No open BLOCKER or P1. Phase 5 may commit.
   defined follow-up trigger alongside MAX O-1 verification.
 
 No open BLOCKER or P1. Phase 6 may commit.
+
+## Gauntlet 1 Phase 0 critic pass — 2026-09-20 (service bridge architecture)
+
+Critic verified the §3 integration gap and attacked the CURRENT single-token
+model before any new code (all attacks below SUCCEED today — they are the
+Phase 5 acceptance gates).
+
+- **G-01 [BLOCKER] Cross-origin cookie sharing impossible (verified):**
+  `POST /v1/auth/platform/exchange` sets host-bound HttpOnly `up_session`;
+  `holodilnik-seven.vercel.app` cannot read `user-platform-phi.vercel.app`
+  cookies (different registrable origins, no shared parent). Any design that
+  reuses the browser cookie cross-app fails by construction. Fix: backend
+  bridge per ADR-013 (service exchange returns raw APP token to backend
+  only; app sets its OWN cookie). Ordinary exchange JSON contains no
+  `sessionToken` today (good — regression test will pin it).
+- **G-02 [BLOCKER] Global service authority:** `requireServiceToken` accepts
+  one token for ALL operations. Attack: holder reserves `wardrobe.outfit`
+  with a fridge user's session — ALLOWED today. Fix: per-app credentials +
+  `SERVICE==SESSION==OPERATION` per ADR-014.
+- **G-03 [BLOCKER] Commit/release IDOR across services:** `commit`/`release`
+  check `(reservation.userId == session.userId)` only. Attack: same user,
+  fridge reservation + wardrobe-context call — ALLOWED today (app never
+  compared). Fix: reservation ownership by (user AND app) via
+  operation→app join.
+- **G-04 [BLOCKER] Session has no app binding:** `SessionPrincipal={userId}`
+  only; `sessions` table has no `session_type`/`app_id`. Attack: any valid
+  session + any service token spends any operation — ALLOWED today. Fix:
+  DB CHECK-enforced `account (app_id NULL)` vs `app (app_id NOT NULL)`.
+- **G-05 [P1] Operation authority is string-unaware:** engine trusts any
+  `operationKey` that exists+enabled, never comparing `operation.app_id` to
+  caller. `startsWith("fridge.")` would also be spoofable if added naively.
+  Fix: registry `app_id` relation is authoritative.
+- **G-06 [P1] No rotation without global downtime:** `PREVIOUS` grace token
+  is global; per-app rotation impossible. Fix: multiple active credentials
+  per app.
+
+No code changed in Phase 0. Architecture approved (ADR-013/ADR-014); BUILDER
+may proceed to Phase 1.
+
+## Gauntlet 1 Phase 1 critic pass — DB authority (2026-09-20, CLOSED)
+
+- **C-501 [P1] base64url separator ambiguity → FIXED (F-004):** token split on
+  `_` failed whenever the payload contained `_`. Hex encoding restores an
+  unambiguous 3-segment parse; unit test pins round-trip + malformed rejects.
+- **C-502 [P1] Zod strict-UUID vs seed rows → FIXED (F-005):** service result
+  schema rejected real app IDs. Relaxed to string (authority is the DB join).
+- **Checked:** `service_credentials` FK RESTRICT (no orphan authority),
+  unique `key_id`, status CHECK, RLS; sessions `account↔NULL / app↔NOT NULL`
+  CHECK live + memory parity (5 unit + 2 live tests); `getAppBySlug` added;
+  migration is additive only (no DROP of auth data). Live `migration list`
+  shows `20260920000000` applied remotely.
+- No open BLOCKER/P1.
+
+## Gauntlet 1 Phase 2 critic pass — credential engine (2026-09-20, CLOSED)
+
+- Attacks: missing/garbage/unknown-key/wrong-secret/revoked/expired/
+  overlong/malformed all → 401 without keyId enumeration; multiple active per
+  app work; revocation is immediate; same secret hash under another app grants
+  nothing there (authority is keyId→app, not secret value). CLI CREATE prints
+  once, LIST never prints secrets/hashes (code-inspected).
+- 256-bit hex secret, SHA-256 hash-only storage, `timingSafeEqual` verify.
+- No open BLOCKER/P1.
+
+## Gauntlet 1 Phase 3 critic pass — sessions (2026-09-20, CLOSED)
+
+- Attacks: account session on credit route → 403; fridge session + wardrobe
+  service → 403; expired/deleted/random sessions → 401; suspended user → 403;
+  disabled-app session use → 401/403. Old production rows default to
+  `account` (migration-safe, live exchange-race green after migrate).
+- `SessionPrincipal` carries `sessionId/sessionType/appId`; app identity never
+  taken from request bodies.
+- No open BLOCKER/P1.
+
+## Gauntlet 1 Phase 4 critic pass — server exchange (2026-09-20, CLOSED)
+
+- `POST /v1/service/auth/platform-exchange` requires service auth, validates
+  initData identically to browser flow (shared `validatePlatformIdentity` +
+  transactional `exchangeIdentity` with `appId`), returns
+  `ServicePlatformExchangeResult` (token server-only, no Set-Cookie).
+  Browser `POST /v1/auth/platform/exchange` JSON pinned to contain NO raw
+  token (regression test). Raw initData never logged/persisted; DB keeps
+  session hash only. Mixed 5+5 concurrent first-exchanges → one user, one
+  +10 (tested). Telegram↔MAX namespace reuse preserved (shared service).
+- No open BLOCKER/P1.
+
+## Gauntlet 1 Phase 5 critic pass — credit authority (2026-09-20, CLOSED)
+
+- Enforced `SERVICE==SESSION==OPERATION` on reserve (registry `app_id`
+  relation, disabled-op 403) and reservation ownership (user AND app) on
+  commit/release: cross-service same-user → 403, cross-user → 404,
+  `startsWith` never used. All §34 matrix cases tested (11 bridge tests).
+  Existing §43 races re-run live green (last-credit 1/10, dup request/commit/
+  release settle-once). `startParam: "wardrobe"` cannot change service identity.
+- No open BLOCKER/P1.
+
+## Gauntlet 1 Phase 6 critic pass — client + hygiene (2026-09-20, CLOSED)
+
+- `ServerPlatformClient` (`/server` entry) is the only service-exchange path;
+  browser `PlatformClient` has no service-exchange method; service tokens enter
+  via injected callback only (no env/storage in package — same rule as Phase 4
+  A-8, re-grepped). Global `PLATFORM_SERVICE_TOKEN(_PREVIOUS)` removed from
+  config/`.env.example`/tests (grep-verified, no hidden path). README
+  staleness fixed (no Phase 0 / UNAPPLIED claims). `docs/service-bridge.md`
+  covers auth/sessions/authority/bridge/rotation/threat model.
+- No open BLOCKER/P1.

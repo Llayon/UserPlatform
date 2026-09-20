@@ -1,6 +1,36 @@
 # STATE.md — UserPlatform Checkpoint
 
-## Current Checkpoint: PHASE 6 — DEPLOYMENT (USER PLATFORM CORE READY)
+## Current Checkpoint: GAUNTLET 1 — SERVICE BRIDGE READY (UserPlatform side only)
+
+**Date:** 2026-09-20
+**Repository:** `Llayon/UserPlatform`, branch `master`
+**Starting HEAD:** `5f6d82c` (verified `git log`, clean tree, up to date)
+
+### Gauntlet 1 contents (done, verified — Holodilnik NOT touched)
+
+- Migration `20260920000000_service_bridge` applied remotely (local == remote):
+  `service_credentials` (per-app, hash-only, RESTRICT on app delete) +
+  `sessions(session_type, app_id)` with account/app CHECK; legacy rows default
+  to `account` (production sessions survive).
+- Service auth: `ups_<keyId>_<secret>` (hex, 256-bit secret, SHA-256 +
+  timingSafeEqual), `ServicePrincipal{credentialId,appId,appSlug}` from DB
+  mapping only; global `PLATFORM_SERVICE_TOKEN(_PREVIOUS)` removed everywhere.
+- Sessions: `SessionPrincipal{userId,sessionId,sessionType,appId}`; account
+  sessions read-only (403 on credit routes); app sessions only via
+  `POST /v1/service/auth/platform-exchange` (raw token server-only, no cookie).
+- Credits: `SERVICE==SESSION==OPERATION` on reserve + (user AND app) ownership
+  on commit/release (registry `app_id` authoritative, never prefix checks).
+- Client: `ServerPlatformClient` (`/server`) with
+  `serviceAuth.exchangePlatform` + credits; browser client unchanged + pinned
+  to never return raw tokens. Operator CLI
+  `service:create|list|revoke|rotate` (token-once, list-safe).
+- Tests: 121 fast + 10 pg-core + 4 engine-race + 1 exchange-race + 2 bridge-live
+  all green; 11 bridge attack tests + 5 db-parity + 4 credential unit tests new.
+  Docs: README destaled, `docs/service-bridge.md` + ADR-013/014 + F-004/F-005.
+- Live smoke (post-migrate): gated suites green against Supabase; Vercel deploy
+  is Phase 7 below (Preview then Production with the §45 smoke matrix).
+
+## Previous Checkpoint: PHASE 6 — DEPLOYMENT (USER PLATFORM CORE READY)
 
 **Date:** 2026-09-19
 **Repository:** `Llayon/UserPlatform` (public, `origin/master` tracking)

@@ -43,6 +43,30 @@
 - **Rule:** one stateful handler per URL pattern in E2E; never stack
   overlapping route mocks.
 
+## F-004: base64url service tokens contain "_" — ambiguous separator
+
+- **Symptom:** ~60% of freshly minted `ups_<keyId>_<secret>` tokens failed
+  `parseServiceToken` (returned null → 401/500 in service exchange tests).
+- **Cause:** base64url alphabet includes `-` AND `_`, so splitting the token
+  on `_` yields 4+ segments whenever the random payload contains `_`.
+- **Fix:** hex-encode keyId (12 bytes → 24 hex) and secret (32 bytes →
+  64 hex, 256-bit entropy). Hex never contains `_`, so 3-segment split is
+  unambiguous. Documented in `serviceCredentials.ts` header.
+- **Rule:** never use a separator that belongs to the payload alphabet.
+
+## F-005: Zod 4 `z.uuid()` rejects seed UUIDs (version/variant strict)
+
+- **Symptom:** `POST /v1/service/auth/dev/exchange` returned 500
+  (`servicePlatformExchangeResultSchema` safeParse failed) even though
+  exchange + principal resolution succeeded.
+- **Cause:** memory/seed app IDs (`00000000-0000-0000-0000-…`) have version 0
+  / variant 0; Zod 4 validates version 1–8 + variant 8/9/a/b. Postgres `uuid`
+  accepts them, so prod rows are fine — only the contract was stricter.
+- **Fix:** `servicePlatformExchangeResultSchema.app.id` is `z.string()` (DB
+  identity, authority comes from the credential→app join, not the shape).
+  Do NOT rewrite seed IDs (would break prod FKs).
+- **Rule:** response schemas over legacy-seeded IDs must not assume strict v4.
+
 ## Watch
 
 - MAX byte-level check-string layout not quoted verbatim in official docs fetched; re-verify with live MAX bot token in Phase 2 before trusting MAX exchange in prod.

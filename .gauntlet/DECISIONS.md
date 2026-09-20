@@ -108,6 +108,55 @@
 - **Consequence:** Host-specific code is quarantined and unit-tested;
   dashboard proven at 3 viewports + dark theme + edge data.
 
+## ADR-013: Cross-app auth requires a server-to-server bridge (Gauntlet 1, Phase 0)
+
+- **Decision:** `POST /v1/auth/platform/exchange` stays browser-safe (HttpOnly
+  `up_session` cookie, JSON never contains a raw session token). Cross-origin
+  apps (e.g. `holodilnik-seven.vercel.app`) MUST NOT read UserPlatform cookies
+  and MUST NOT receive raw session tokens in browser JS. Instead the app
+  backend forwards raw Telegram/MAX initData with its per-app service
+  credential to `POST /v1/service/auth/platform-exchange`, receives a raw
+  opaque APP session server-to-server only, and stores it in its own
+  HttpOnly cookie.
+- **Context:** Verified current gap: UserPlatform browser flow
+  (`exchange` → `up_session` → `/v1/me`) is valid on its own origin only.
+  `*.vercel.app` origins do not share cookies, so sharing the cookie across
+  apps is impossible; returning the ordinary exchange's raw token to browser
+  JS would leak session authority to XSS.
+- **Consequence:** New server-only exchange + app-scoped sessions
+  (`session_type=account|app`, `app_id` binding, DB CHECK-enforced). Account
+  sessions (`app_id IS NULL`) keep current cookie behavior; app sessions
+  (`app_id NOT NULL`) are only minted by the service exchange and never
+  Set-Cookie'd by UserPlatform.
+
+## ADR-014: Service bridge authority invariant (Gauntlet 1, Phase 0)
+
+- **Decision:** Replace the single global `PLATFORM_SERVICE_TOKEN` with
+  DB-backed per-application credentials (`service_credentials`: `key_id`
+  public lookup, `secret_hash` only, `app_id` FK, `active|revoked` status,
+  expiry, `last_used_at`). Token format `ups_<keyId>_<secret>` (secret
+  ≥256-bit entropy, shown once, SHA-256 hash + `timingSafeEqual`). Identity
+  comes ONLY from credential→app mapping; callers never declare `app` via
+  header/body. Credit authority invariant enforced on every mutation:
+  `SERVICE APP == SESSION APP == OPERATION APP` (registry `operation.app_id`
+  is authoritative, never `startsWith` string checks), plus reservation
+  ownership by (user AND app) on commit/release. Account sessions are
+  READ-only and rejected on service credit routes even with a valid service
+  credential. Disabled apps fail closed (service auth + operations 403).
+  Rotation = multiple active credentials per app (create B, deploy B,
+  revoke A); no global PREVIOUS token.
+- **Context:** Current Phase 4 critic proved single-token + session binding
+  for one implicit app, but any holder can spend any operation and commit any
+  same-user reservation; operation scoping is enabled-flag only. Multi-app
+  requires DB authority, not application convention.
+- **Consequence:** Migration adds `service_credentials` + session scoping
+  columns with backwards-safe defaults (old rows become `account` sessions);
+  `PLATFORM_SERVICE_TOKEN(_PREVIOUS)` removed (no compat flag — no real
+  consumer exists yet); new `ServerPlatformClient` (`service.auth.
+exchangePlatform` + credit calls) is the only Holodilnik integration path;
+  raw initData/service secrets/session tokens never logged, persisted, or
+  returned to browsers (grep-guarded).
+
 ## ADR-012: Vercel deployment on Holodilnik-proven wiring (Phase 6)
 
 - **Decision:** `vercel.json` (account `dist` output + `/v1/*`, `/health`
